@@ -23,12 +23,14 @@ const produkRoutes = require('./src/routes/produkRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const memberRoutes= require('./src/routes/memberRoutes');
+const setoranRoutes= require('./src/routes/setoranRoutes');
 // ==================== REGISTER ROUTES ====================
 app.use('/api/toko', tokoRoutes);
 app.use('/api/produk',produkRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/member',memberRoutes);
+app.use('/api/setoran',setoranRoutes);
 // ==================== BASIC ROUTES ====================
 app.get('/', (req, res) => {
   res.json({
