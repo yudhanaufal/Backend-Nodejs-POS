@@ -27,6 +27,8 @@ const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const memberRoutes= require('./src/routes/memberRoutes');
 const setoranRoutes= require('./src/routes/setoranRoutes');
+const operasionalRoutes= require('./src/routes/operasionalRoutes');
+const returnRoutes= require('./src/routes/returnRoutes')
 // ==================== REGISTER ROUTES ====================
 app.use('/api/toko', tokoRoutes);
 app.use('/api/produk',produkRoutes);
@@ -34,6 +36,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/member',memberRoutes);
 app.use('/api/setoran',setoranRoutes);
+app.use('/api/operasional',operasionalRoutes);
+app.use('/api/return',returnRoutes);
 // ==================== BASIC ROUTES ====================
 app.get('/', (req, res) => {
   res.json({
