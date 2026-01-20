@@ -28,13 +28,33 @@ exports.createReturn = async (req, res) => {
       });
     }
 
-    // Validasi total harus sesuai dengan jumlah subtotal detail
+    // Cek apakah toko exists
+    const tokoExists = await Toko.exists(toko_id);
+    if (!tokoExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Toko tidak ditemukan"
+      });
+    }
+
+    // Cek apakah user exists
+    const userExists = await User.exists(users_id);
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: "User tidak ditemukan"
+      });
+    }
+
     let calculatedTotal = 0;
+    const validatedDetails = [];
+
+    // Validasi dan ambil harga_beli dari database untuk setiap detail
     for (const detail of details) {
-      if (!detail.produk_id || !detail.nama_produk || !detail.harga_beli) {
+      if (!detail.produk_id || !detail.nama_produk) {
         return res.status(400).json({
           success: false,
-          message: "Setiap detail harus memiliki produk_id, nama_produk, dan harga_beli"
+          message: "Setiap detail harus memiliki produk_id dan nama_produk"
         });
       }
       
@@ -55,9 +75,17 @@ exports.createReturn = async (req, res) => {
           message: `Produk dengan ID ${detail.produk_id} tidak termasuk dalam toko ${toko_id}`
         });
       }
-      
+
+      // Ambil data produk termasuk harga_beli
+      const produkData = await Produk.getById(detail.produk_id);
+      if (!produkData) {
+        return res.status(404).json({
+          success: false,
+          message: `Data produk dengan ID ${detail.produk_id} tidak ditemukan`
+        });
+      }
+
       const quantity = parseInt(detail.quantity) || 1;
-      const harga_beli = parseFloat(detail.harga_beli);
       
       if (quantity <= 0) {
         return res.status(400).json({
@@ -66,51 +94,37 @@ exports.createReturn = async (req, res) => {
         });
       }
       
+      // Gunakan harga_beli dari database
+      const harga_beli = parseFloat(produkData.harga_beli);
+      
       if (harga_beli <= 0) {
         return res.status(400).json({
           success: false,
-          message: "Harga beli harus lebih dari 0"
+          message: `Harga beli produk ${produkData.nama_produk} tidak valid atau belum diatur`
         });
       }
-      
+
       calculatedTotal += quantity * harga_beli;
-    }
 
-    // Validasi total harus sama dengan perhitungan
-    const inputTotal = parseFloat(total);
-    if (Math.abs(inputTotal - calculatedTotal) > 0.01) {
-      return res.status(400).json({
-        success: false,
-        message: `Total tidak sesuai. Input: ${inputTotal}, Hitung: ${calculatedTotal.toFixed(2)}`
+      validatedDetails.push({
+        produk_id: parseInt(detail.produk_id),
+        nama_produk: detail.nama_produk,
+        quantity: quantity,
+        harga_beli: harga_beli, // Menggunakan harga_beli dari database
+        alasan_return: detail.alasan_return || null
       });
     }
 
-    // Cek apakah toko exists
-    const tokoExists = await Toko.exists(toko_id);
-    if (!tokoExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Toko tidak ditemukan"
-      });
+    // Validasi total harus sama dengan perhitungan (jika total diinput)
+    if (total) {
+      const inputTotal = parseFloat(total);
+      if (Math.abs(inputTotal - calculatedTotal) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          message: `Total tidak sesuai. Input: ${inputTotal}, Hitung: ${calculatedTotal.toFixed(2)}`
+        });
+      }
     }
-
-    // Cek apakah user exists
-    const userExists = await User.exists(users_id);
-    if (!userExists) {
-      return res.status(404).json({
-        success: false,
-        message: "User tidak ditemukan"
-      });
-    }
-
-    // Format details
-    const formattedDetails = details.map(detail => ({
-      produk_id: parseInt(detail.produk_id),
-      nama_produk: detail.nama_produk,
-      quantity: parseInt(detail.quantity) || 1,
-      harga_beli: parseFloat(detail.harga_beli),
-      alasan_return: detail.alasan_return || null
-    }));
 
     // Create return
     const returnId = await ReturnModel.create({
@@ -120,7 +134,7 @@ exports.createReturn = async (req, res) => {
       toko_id: parseInt(toko_id),
       keterangan: keterangan || null,
       status: status || 'pending',
-      details: formattedDetails
+      details: validatedDetails
     });
 
     // Get the created return
@@ -140,7 +154,6 @@ exports.createReturn = async (req, res) => {
     });
   }
 };
-
 /**
  * @desc    Get all return
  * @route   GET /api/return
@@ -342,7 +355,7 @@ exports.getReturnByStatus = async (req, res) => {
 /**
  * @desc    Update status return
  * @route   PATCH /api/return/:id/status
- * @access  Public
+ * @access  Private/Admin
  */
 exports.updateStatus = async (req, res) => {
   try {
@@ -389,7 +402,7 @@ exports.updateStatus = async (req, res) => {
       }
     }
     
-    // Update status
+    // Update status (yang sekarang sudah include log mutasi stok)
     const updated = await ReturnModel.updateStatus(id, status, admin_id);
     
     if (!updated) {
@@ -401,23 +414,39 @@ exports.updateStatus = async (req, res) => {
     
     const updatedReturn = await ReturnModel.getById(id);
     
-    // Log stok jika approved
-  
+    // Response message berdasarkan status
+    let message = `Status return berhasil diubah menjadi ${status}`;
+    
+    // Tambahkan pesan khusus untuk status yang melibatkan perubahan stok
+    if (status === 'approved') {
+      message += " (Stok produk telah ditambahkan dan dicatat dalam mutasi stok)";
+    } else if ((status === 'rejected' || status === 'pending') && currentReturn.status === 'approved') {
+      message += " (Perubahan stok telah dikembalikan dan dicatat dalam mutasi stok)";
+    }
     
     res.json({
       success: true,
-      message: `Status return berhasil diubah menjadi ${status}`,
+      message: message,
       data: updatedReturn
     });
   } catch (error) {
     console.error('Update status error:', error);
+    
+    // Handle error yang lebih spesifik
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({
+        success: false,
+        message: "Data referensi tidak valid (produk atau toko tidak ditemukan)"
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: "Gagal mengupdate status return"
+      message: "Gagal mengupdate status return",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
-
 /**
  * @desc    Update return (hanya untuk pending)
  * @route   PUT /api/return/:id

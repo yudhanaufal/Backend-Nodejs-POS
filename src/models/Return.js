@@ -20,9 +20,24 @@ class ReturnModel {
     
     const returnId = returnResult.insertId;
     
-    // 2. Insert detail return (TIDAK update stok dulu, tunggu approved)
+    // 2. Insert detail return dengan mengambil harga_beli dari tabel produk
     if (details && details.length > 0) {
       for (const detail of details) {
+        // Ambil harga_beli dari produk
+        const [produkRows] = await connection.query(
+          'SELECT harga_beli FROM produk WHERE id = ?',
+          [detail.produk_id]
+        );
+        
+        if (produkRows.length === 0) {
+          await connection.rollback();
+          connection.release();
+          throw new Error(`Produk dengan ID ${detail.produk_id} tidak ditemukan`);
+        }
+        
+        const harga_beli = produkRows[0].harga_beli;
+        
+        // Insert detail dengan harga_beli dari produk
         await connection.query(
           `INSERT INTO detail_return 
            (return_id, produk_id, nama_produk, quantity, harga_beli, alasan_return) 
@@ -32,7 +47,7 @@ class ReturnModel {
             detail.produk_id, 
             detail.nama_produk, 
             detail.quantity || 1, 
-            detail.harga_beli,
+            harga_beli, // Menggunakan harga_beli dari produk
             detail.alasan_return || null
           ]
         );
@@ -292,11 +307,52 @@ static async updateStatus(id, status, adminId = null) {
       );
       
       for (const detail of details) {
-        await connection.query(
-          `UPDATE produk SET stok = stok + ? WHERE id = ?`,
-          [detail.quantity, detail.produk_id]
+        // Get current stock and price before update
+        const [productRows] = await connection.query(
+          'SELECT stok, toko_id, harga_beli, harga_jual FROM produk WHERE id = ?',
+          [detail.produk_id]
         );
-       
+        
+        if (productRows.length > 0) {
+          const product = productRows[0];
+          const stokSebelum = product.stok;
+          const stokSesudah = stokSebelum - detail.quantity;
+          
+          // Update stock
+          await connection.query(
+            `UPDATE produk SET stok = ? WHERE id = ?`,
+            [stokSesudah, detail.produk_id]
+          );
+          
+          // Insert into mutasi_stok dengan harga
+          await connection.query(
+            `INSERT INTO mutasi_stok (
+              produk_id, 
+              toko_id, 
+              quantity, 
+              harga_beli,
+              harga_jual,
+              stok_sebelum, 
+              stok_sesudah, 
+              tipe, 
+              sumber, 
+              ref_id,
+              created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              detail.produk_id,
+              product.toko_id,
+              detail.quantity,
+              product.harga_beli,    // harga_beli dari produk
+              product.harga_jual,    // harga_jual dari produk
+              stokSebelum,
+              stokSesudah,
+              'KELUAR', // tipe: in (stok masuk)
+              'return', // sumber: return
+              currentReturn.no_return || id,
+            ]
+          );
+        }
       }
       
     } else if (status === 'rejected' && oldStatus === 'approved') {
@@ -307,11 +363,52 @@ static async updateStatus(id, status, adminId = null) {
       );
       
       for (const detail of details) {
-        await connection.query(
-          `UPDATE produk SET stok = stok - ? WHERE id = ?`,
-          [detail.quantity, detail.produk_id]
+        // Get current stock and price before update
+        const [productRows] = await connection.query(
+          'SELECT stok, toko_id, harga_beli, harga_jual FROM produk WHERE id = ?',
+          [detail.produk_id]
         );
-       
+        
+        if (productRows.length > 0) {
+          const product = productRows[0];
+          const stokSebelum = product.stok;
+          const stokSesudah = stokSebelum - detail.quantity;
+          
+          // Update stock
+          await connection.query(
+            `UPDATE produk SET stok = ? WHERE id = ?`,
+            [stokSesudah, detail.produk_id]
+          );
+          
+          // Insert into mutasi_stok dengan harga
+          await connection.query(
+            `INSERT INTO mutasi_stok (
+              produk_id, 
+              toko_id, 
+              quantity, 
+              harga_beli,
+              harga_jual,
+              stok_sebelum, 
+              stok_sesudah, 
+              tipe, 
+              sumber, 
+              ref_id,
+              created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              detail.produk_id,
+              product.toko_id,
+              detail.quantity,
+              product.harga_beli,    // harga_beli dari produk
+              product.harga_jual,    // harga_jual dari produk
+              stokSebelum,
+              stokSesudah,
+              'MASUK', // tipe: out (stok keluar)
+              'return_reversal', // sumber: pembatalan return
+              currentReturn.no_return || id,
+            ]
+          );
+        }
       }
       
     } else if (status === 'pending' && oldStatus === 'approved') {
@@ -322,11 +419,52 @@ static async updateStatus(id, status, adminId = null) {
       );
       
       for (const detail of details) {
-        await connection.query(
-          `UPDATE produk SET stok = stok - ? WHERE id = ?`,
-          [detail.quantity, detail.produk_id]
+        // Get current stock and price before update
+        const [productRows] = await connection.query(
+          'SELECT stok, toko_id, harga_beli, harga_jual FROM produk WHERE id = ?',
+          [detail.produk_id]
         );
-       
+        
+        if (productRows.length > 0) {
+          const product = productRows[0];
+          const stokSebelum = product.stok;
+          const stokSesudah = stokSebelum - detail.quantity;
+          
+          // Update stock
+          await connection.query(
+            `UPDATE produk SET stok = ? WHERE id = ?`,
+            [stokSesudah, detail.produk_id]
+          );
+          
+          // Insert into mutasi_stok dengan harga
+          await connection.query(
+            `INSERT INTO mutasi_stok (
+              produk_id, 
+              toko_id, 
+              quantity, 
+              harga_beli,
+              harga_jual,
+              stok_sebelum, 
+              stok_sesudah, 
+              tipe, 
+              sumber, 
+              ref_id,
+              created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              detail.produk_id,
+              product.toko_id,
+              detail.quantity,
+              product.harga_beli,    // harga_beli dari produk
+              product.harga_jual,    // harga_jual dari produk
+              stokSebelum,
+              stokSesudah,
+              'MASUK', // tipe: out (stok keluar)
+              'return_reversal', // sumber: pembatalan return
+              currentReturn.no_return || id,
+            ]
+          );
+        }
       }
     }
     
@@ -340,7 +478,6 @@ static async updateStatus(id, status, adminId = null) {
     throw error;
   }
 }
-
 
   /**
  * UPDATE - Update return (hanya untuk pending status)
