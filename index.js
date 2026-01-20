@@ -28,7 +28,8 @@ const authRoutes = require('./src/routes/authRoutes');
 const memberRoutes= require('./src/routes/memberRoutes');
 const setoranRoutes= require('./src/routes/setoranRoutes');
 const operasionalRoutes= require('./src/routes/operasionalRoutes');
-const returnRoutes= require('./src/routes/returnRoutes')
+const returnRoutes= require('./src/routes/returnRoutes');
+const stokOpnameRoutes= require('./src/routes/stokOpnameRoutes');
 // ==================== REGISTER ROUTES ====================
 app.use('/api/toko', tokoRoutes);
 app.use('/api/produk',produkRoutes);
@@ -38,6 +39,8 @@ app.use('/api/member',memberRoutes);
 app.use('/api/setoran',setoranRoutes);
 app.use('/api/operasional',operasionalRoutes);
 app.use('/api/return',returnRoutes);
+app.use('/api/stok_opname',stokOpnameRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ==================== BASIC ROUTES ====================
 app.get('/', (req, res) => {
   res.json({
@@ -80,6 +83,6 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== START SERVER ====================
-app.listen(PORT, () => {
-  console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
+app.listen(3000, '0.0.0.0', () => {
+  console.log('API running on port 3000');
 });
