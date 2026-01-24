@@ -30,6 +30,8 @@ const setoranRoutes= require('./src/routes/setoranRoutes');
 const operasionalRoutes= require('./src/routes/operasionalRoutes');
 const returnRoutes= require('./src/routes/returnRoutes');
 const stokOpnameRoutes= require('./src/routes/stokOpnameRoutes');
+const pembelianRoutes= require('./src/routes/pembelianRoutes')
+const transaksiRoutes= require('./src/routes/transaksiRoutes')
 // ==================== REGISTER ROUTES ====================
 app.use('/api/toko', tokoRoutes);
 app.use('/api/produk',produkRoutes);
@@ -40,6 +42,8 @@ app.use('/api/setoran',setoranRoutes);
 app.use('/api/operasional',operasionalRoutes);
 app.use('/api/return',returnRoutes);
 app.use('/api/stok_opname',stokOpnameRoutes);
+app.use('/api/pembelian',pembelianRoutes);
+app.use('/api/transaksi',transaksiRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ==================== BASIC ROUTES ====================
 app.get('/', (req, res) => {

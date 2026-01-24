@@ -1,4 +1,4 @@
-const db = require('../config/connection');
+const db = require('../config/Connection');
 
 // Karena 'return' adalah keyword di JavaScript, kita gunakan ReturnModel
 class ReturnModel {
