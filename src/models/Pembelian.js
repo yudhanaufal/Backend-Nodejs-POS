@@ -9,11 +9,10 @@ const Pembelian = {
     
     try {
       await connection.beginTransaction();
-      console.log('🚀 Starting pembelian transaction...');
-
+     
       // Generate invoice
       const invoiceNumber = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      console.log(`📄 Generated invoice: ${invoiceNumber}`);
+    
       
       // Insert ke tabel pembelian
       const [pembelianResult] = await connection.query(
@@ -29,10 +28,7 @@ const Pembelian = {
       );
 
       const pembelianId = pembelianResult.insertId;
-      console.log(`✅ Pembelian created with ID: ${pembelianId}`);
-
-      // Process each detail
-      console.log(`🛒 Processing ${detailPembelian.length} items...`);
+    
       let calculatedTotal = 0;
       
       for (const detail of detailPembelian) {
@@ -54,14 +50,12 @@ const Pembelian = {
             // Produk sudah ada, ambil harga_beli dari database
             hargaBeliProduk = produk[0].harga_beli;
             namaProduk = produk[0].nama_produk;
-            console.log(`💰 Harga beli diambil dari produk: ${hargaBeliProduk} untuk produk ${produk[0].id}`);
           }
         }
 
         // 2. UPDATE HARGA DI PRODUK JIKA INPUT BERBEDA
         if (produkId && detail.harga_beli && detail.harga_beli !== hargaBeliProduk) {
-          console.log(`🔄 Update harga beli produk ${produkId}: ${hargaBeliProduk} → ${detail.harga_beli}`);
-          
+      
           await connection.query(
             `UPDATE produk SET 
               harga_beli = ?,
@@ -92,7 +86,6 @@ const Pembelian = {
           ]
         );
 
-        console.log(`✅ Detail inserted: ${namaProduk} @ ${hargaBeliProduk} x ${detail.quantity}`);
 
         // 4. UPDATE ATAU CREATE PRODUK DAN STOK
         if (produkId) {
@@ -120,7 +113,6 @@ const Pembelian = {
               [stokSesudah, produkId, pembelianData.toko_id]
             );
             
-            console.log(`📦 Updated stock: ${stokSebelum} → ${stokSesudah}`);
           } else {
             // Produk belum ada, insert baru
             stokSesudah = detail.quantity || 1;
@@ -137,7 +129,6 @@ const Pembelian = {
               ]
             );
             
-            console.log(`🆕 Created new product: ${namaProduk}`);
           }
 
           // 5. Insert mutasi stok
@@ -158,7 +149,6 @@ const Pembelian = {
             ]
           );
           
-          console.log(`📝 Mutasi stok recorded`);
         }
       }
 
@@ -169,7 +159,6 @@ const Pembelian = {
       );
 
       await connection.commit();
-      console.log('✅ Transaction committed successfully');
       
       return { 
         success: true, 
@@ -241,58 +230,87 @@ const Pembelian = {
   // ============================================
   // 4. GET PEMBELIAN BY TOKO
   // ============================================
-  async getPembelianByToko(tokoId, filters = {}) {
-    try {
-      let query = `
-        SELECT 
-          p.id,
-          p.invoice,
-          p.total,
-          p.status,
-          DATE_FORMAT(p.tanggal, '%Y-%m-%d') as tanggal,
-          p.users_id,
-          p.toko_id,
-          p.created_at,
-          u.nama_lengkap as user_nama,
-          COUNT(dp.id) as jumlah_item,
-          SUM(dp.quantity) as total_quantity
-        FROM pembelian p
-        LEFT JOIN users u ON p.users_id = u.id
-        LEFT JOIN detail_pembelian dp ON p.id = dp.pembelian_id
-        WHERE p.toko_id = ?
-      `;
-      
-      const params = [tokoId];
-      
-      if (filters.status && filters.status !== 'ALL') {
-        query += ` AND p.status = ?`;
-        params.push(filters.status);
-      }
-      
-      if (filters.start_date && filters.end_date) {
-        query += ` AND DATE(p.tanggal) BETWEEN ? AND ?`;
-        params.push(filters.start_date, filters.end_date);
-      }
-      
-      if (filters.search) {
-        query += ` AND p.invoice LIKE ?`;
-        params.push(`%${filters.search}%`);
-      }
-      
-      query += ` GROUP BY p.id ORDER BY p.tanggal DESC`;
-      
-      if (filters.limit) {
-        query += ` LIMIT ?`;
-        params.push(parseInt(filters.limit));
-      }
-      
-      const [rows] = await pool.query(query, params);
-      return rows;
-    } catch (error) {
-      console.error('Error getPembelianByToko:', error);
-      throw error;
-    }
-  },
+async getPembelianByToko(tokoId, filters = {}) {
+try {
+const page = parseInt(filters.page) || 1;
+const limit = parseInt(filters.limit) || 20;
+const offset = (page - 1) * limit;
+
+
+const params = [tokoId];
+let whereClause = `WHERE p.toko_id = ?`;
+
+
+// filter status
+if (filters.status && filters.status !== 'ALL') {
+whereClause += ` AND p.status = ?`;
+params.push(filters.status);
+}
+
+
+// =====================
+// QUERY DATA
+// =====================
+const dataQuery = `
+SELECT
+p.id,
+p.invoice,
+p.total,
+p.status,
+DATE_FORMAT(p.tanggal, '%Y-%m-%d') AS tanggal,
+p.users_id,
+u.nama_lengkap AS user_nama,
+COUNT(dp.id) AS jumlah_item,
+IFNULL(SUM(dp.quantity), 0) AS total_quantity
+FROM pembelian p
+LEFT JOIN users u ON p.users_id = u.id
+LEFT JOIN detail_pembelian dp ON p.id = dp.pembelian_id
+${whereClause}
+GROUP BY p.id
+ORDER BY p.tanggal DESC
+LIMIT ? OFFSET ?
+`;
+
+
+const [rows] = await pool.query(
+dataQuery,
+[...params, limit, offset]
+);
+
+
+// =====================
+// QUERY TOTAL
+// =====================
+const countQuery = `
+SELECT COUNT(DISTINCT p.id) AS total
+FROM pembelian p
+${whereClause}
+`;
+
+
+const [countResult] = await pool.query(countQuery, params);
+const total = countResult[0]?.total || 0;
+const totalPages = Math.ceil(total / limit);
+
+
+return {
+data: rows,
+pagination: {
+page,
+limit,
+total,
+totalPages
+}
+};
+
+
+} catch (error) {
+console.error('Model getPembelianByToko error:', error);
+throw error;
+}
+},
+
+
 
   // ============================================
   // 5. UPDATE HARGA BELI (Single Item)
@@ -590,8 +608,6 @@ const Pembelian = {
       const tokoId = pembelian[0].toko_id;
       const invoice = pembelian[0].invoice;
 
-      console.log(`🔄 Update status pembelian ${pembelianId} (${invoice}): ${currentStatus} → ${status}`);
-
       // 2. Update status di tabel pembelian
       await connection.query(
         `UPDATE pembelian 
@@ -612,7 +628,6 @@ const Pembelian = {
 
       // 4. PROSES ROLLBACK STOK JIKA STATUS JADI BATAL
       if (currentStatus !== 'BATAL' && status === 'BATAL') {
-        console.log(`📉 Rollback stok untuk pembelian ${pembelianId}`);
         
         // Get semua detail pembelian
         const [details] = await connection.query(
@@ -646,7 +661,6 @@ const Pembelian = {
                 [stokSesudah, detail.produk_id, tokoId]
               );
 
-              console.log(`📦 Stok produk ${detail.produk_id}: ${stokSebelum} → ${stokSesudah}`);
 
               // Buat mutasi stok KELUAR untuk cancel
               await connection.query(
@@ -672,7 +686,7 @@ const Pembelian = {
 
       // 5. PROSES RESTORE STOK JIKA DARI BATAL KE SELESAI/PROSES
       else if (currentStatus === 'BATAL' && (status === 'SELESAI' || status === 'PROSES')) {
-        console.log(`📈 Restore stok untuk pembelian ${pembelianId}`);
+
         
         const [details] = await connection.query(
           `SELECT * FROM detail_pembelian WHERE pembelian_id = ?`,
@@ -698,8 +712,6 @@ const Pembelian = {
                  WHERE id = ? AND toko_id = ?`,
                 [stokSesudah, detail.produk_id, tokoId]
               );
-
-              console.log(`📦 Stok produk ${detail.produk_id}: ${stokSebelum} → ${stokSesudah}`);
 
               // Buat mutasi stok MASUK untuk restore
               await connection.query(
@@ -732,7 +744,7 @@ const Pembelian = {
 
       // 6. PROSES NORMAL UNTUK STATUS LAIN (DRAFT, PROSES, SELESAI)
       else if (status === 'SELESAI' && currentStatus !== 'SELESAI') {
-        console.log(`✅ Pembelian ${pembelianId} diselesaikan`);
+
         
         // Log untuk status SELESAI
         await connection.query(

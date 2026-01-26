@@ -65,4 +65,26 @@ exports.getTransaksiById = async (req, res) => {
     }
 };
 
+exports.getTransaksiByToko = async (req, res) => {
+    try {
+        const toko_id = req.params.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+
+        const data = await Transaksi.getByToko(toko_id, page, limit);
+
+        if (!data || data.data.length === 0) {
+            return res.status(404).json({
+                message: "Transaksi tidak ditemukan"
+            });
+        }
+
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({
+            message: "Gagal mengambil data",
+            error: error.message
+        });
+    }
+};
 

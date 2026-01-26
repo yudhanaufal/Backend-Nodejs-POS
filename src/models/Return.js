@@ -3,29 +3,23 @@ const db = require('../config/Connection');
 // Karena 'return' adalah keyword di JavaScript, kita gunakan ReturnModel
 class ReturnModel {
     
- static async create(data) {
-  const { tanggal, total, users_id, toko_id, keterangan, status, details } = data;
+static async create(data) {
+  const { tanggal, users_id, toko_id, keterangan, status, details } = data;
   
   const connection = await db.getConnection();
   
   try {
     await connection.beginTransaction();
     
-    // 1. Insert ke tabel return (header)
-    const [returnResult] = await connection.query(
-      `INSERT INTO \`return\` (tanggal, total, users_id, toko_id, keterangan, status) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [tanggal, total, users_id, toko_id, keterangan || null, status || 'pending']
-    );
+    // 1. Hitung total otomatis dan ambil nama_produk dari tabel produk
+    let total = 0;
+    const validatedDetails = [];
     
-    const returnId = returnResult.insertId;
-    
-    // 2. Insert detail return dengan mengambil harga_beli dari tabel produk
     if (details && details.length > 0) {
       for (const detail of details) {
-        // Ambil harga_beli dari produk
+        // Ambil data produk (nama_produk dan harga_beli)
         const [produkRows] = await connection.query(
-          'SELECT harga_beli FROM produk WHERE id = ?',
+          'SELECT nama_produk, harga_beli FROM produk WHERE id = ?',
           [detail.produk_id]
         );
         
@@ -35,9 +29,39 @@ class ReturnModel {
           throw new Error(`Produk dengan ID ${detail.produk_id} tidak ditemukan`);
         }
         
-        const harga_beli = produkRows[0].harga_beli;
+        const produk = produkRows[0];
+        const quantity = detail.quantity || 1;
+        const harga_beli = parseFloat(produk.harga_beli);
+        const subtotal = harga_beli * quantity;
         
-        // Insert detail dengan harga_beli dari produk
+        total += subtotal;
+        
+        validatedDetails.push({
+          produk_id: detail.produk_id,
+          nama_produk: produk.nama_produk, // Ambil dari tabel produk
+          quantity: quantity,
+          harga_beli: harga_beli,
+          alasan_return: detail.alasan_return || null
+        });
+      }
+    } else {
+      await connection.rollback();
+      connection.release();
+      throw new Error('Detail return harus diisi');
+    }
+    
+    // 2. Insert ke tabel return (header) dengan total yang sudah dihitung
+    const [returnResult] = await connection.query(
+      `INSERT INTO \`return\` (tanggal, total, users_id, toko_id, keterangan, status) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [tanggal, total, users_id, toko_id, keterangan || null, status || 'pending']
+    );
+    
+    const returnId = returnResult.insertId;
+    
+    // 3. Insert detail return
+    if (validatedDetails.length > 0) {
+      for (const detail of validatedDetails) {
         await connection.query(
           `INSERT INTO detail_return 
            (return_id, produk_id, nama_produk, quantity, harga_beli, alasan_return) 
@@ -46,12 +70,11 @@ class ReturnModel {
             returnId, 
             detail.produk_id, 
             detail.nama_produk, 
-            detail.quantity || 1, 
-            harga_beli, // Menggunakan harga_beli dari produk
-            detail.alasan_return || null
+            detail.quantity, 
+            detail.harga_beli,
+            detail.alasan_return
           ]
         );
-        // JANGAN update stok di sini, tunggu approved
       }
     }
     

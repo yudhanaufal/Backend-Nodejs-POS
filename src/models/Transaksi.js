@@ -121,35 +121,97 @@ class Transaksi {
         }
     }
 
-    static async getAll() {
-        // Query Join untuk melihat transaksi beserta detailnya
+    // static async getAll() {
+    //     // Query Join untuk melihat transaksi beserta detailnya
        
-        const [detail] = await db.query(`
-            SELECT td.nama_produk, td.qty, td.harga_satuan 
-            FROM transaksi_detail td 
-        `);
-        return detail;
-    }
+    //     const [detail] = await db.query(`
+    //         SELECT td.nama_produk, td.qty, td.harga_satuan 
+    //         FROM transaksi_detail td 
+    //     `);
+    //     return detail;
+    // }
+static async getTransaksi(page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
 
-    static async getTransaksi(){
-         const [transaksi] = await db.query(`
-            SELECT * FROM transaksi 
-        `);
-        return transaksi;
-    }
+    // Ambil data
+    const [data] = await db.query(
+        `SELECT * FROM transaksi 
+         ORDER BY created_at DESC 
+         LIMIT ? OFFSET ?`,
+        [limit, offset]
+    );
 
-   static async getById(id) {
-    // // 1. Ambil data utama transaksi
-    // const [transaksi] = await db.query('SELECT * FROM transaksi WHERE id = ?', [id]);
+    // Hitung total data
+    const [[{ total }]] = await db.query(
+        `SELECT COUNT(*) AS total FROM transaksi`
+    );
 
-    // if (transaksi.length === 0) return null;
+    return {
+        data,
+        pagination: {
+            total,
+            page,
+            limit,
+            totalPage: Math.ceil(total / limit)
+        }
+    };
+}
 
-    // 2. Ambil semua detail item untuk transaksi ini
-    const [details] = await db.query('SELECT * FROM detail_transaksi WHERE transaksi_id = ?', [id]);
+static async getById(id, page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
 
-    // 3. Gabungkan hasilnya
-    return details; 
-    }
+    const [data] = await db.query(
+        `SELECT * FROM detail_transaksi 
+         WHERE transaksi_id = ?
+         LIMIT ? OFFSET ?`,
+        [id, limit, offset]
+    );
+
+    const [[{ total }]] = await db.query(
+        `SELECT COUNT(*) AS total 
+         FROM detail_transaksi 
+         WHERE transaksi_id = ?`,
+        [id]
+    );
+
+    return {
+        data,
+        pagination: {
+            total,
+            page,
+            limit,
+            totalPage: Math.ceil(total / limit)
+        }
+    };
+}
+static async getByToko(toko_id, page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
+
+    const [data] = await db.query(
+        `SELECT * FROM transaksi 
+         WHERE toko_id = ?
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?`,
+        [toko_id, limit, offset]
+    );
+
+    const [[{ total }]] = await db.query(
+        `SELECT COUNT(*) AS total 
+         FROM transaksi 
+         WHERE toko_id = ?`,
+        [toko_id]
+    );
+
+    return {
+        data,
+        pagination: {
+            total,
+            page,
+            limit,
+            totalPage: Math.ceil(total / limit)
+        }
+    };
+}
 
     static async cancel(transaksiId, data) {
         const { user_id, alasan } = data; // Opsional: untuk mencatat siapa yang cancel

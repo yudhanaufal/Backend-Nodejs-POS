@@ -10,7 +10,7 @@ const Produk = require('../models/Produk');
  */
 exports.createReturn = async (req, res) => {
   try {
-    const { tanggal, total, users_id, toko_id, keterangan, status, details } = req.body;
+    const { tanggal, users_id, toko_id, keterangan, status, details } = req.body;
 
     // Validasi input wajib
     if (!tanggal || !users_id || !toko_id || !details || !Array.isArray(details)) {
@@ -46,15 +46,14 @@ exports.createReturn = async (req, res) => {
       });
     }
 
-    let calculatedTotal = 0;
+    // Validasi setiap detail
     const validatedDetails = [];
 
-    // Validasi dan ambil harga_beli dari database untuk setiap detail
     for (const detail of details) {
-      if (!detail.produk_id || !detail.nama_produk) {
+      if (!detail.produk_id) {
         return res.status(400).json({
           success: false,
-          message: "Setiap detail harus memiliki produk_id dan nama_produk"
+          message: "Setiap detail harus memiliki produk_id"
         });
       }
       
@@ -76,15 +75,6 @@ exports.createReturn = async (req, res) => {
         });
       }
 
-      // Ambil data produk termasuk harga_beli
-      const produkData = await Produk.getById(detail.produk_id);
-      if (!produkData) {
-        return res.status(404).json({
-          success: false,
-          message: `Data produk dengan ID ${detail.produk_id} tidak ditemukan`
-        });
-      }
-
       const quantity = parseInt(detail.quantity) || 1;
       
       if (quantity <= 0) {
@@ -93,43 +83,19 @@ exports.createReturn = async (req, res) => {
           message: "Quantity harus lebih dari 0"
         });
       }
-      
-      // Gunakan harga_beli dari database
-      const harga_beli = parseFloat(produkData.harga_beli);
-      
-      if (harga_beli <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Harga beli produk ${produkData.nama_produk} tidak valid atau belum diatur`
-        });
-      }
-
-      calculatedTotal += quantity * harga_beli;
 
       validatedDetails.push({
         produk_id: parseInt(detail.produk_id),
-        nama_produk: detail.nama_produk,
         quantity: quantity,
-        harga_beli: harga_beli, // Menggunakan harga_beli dari database
         alasan_return: detail.alasan_return || null
+        // Nama produk dan harga_beli akan diambil otomatis di model
       });
     }
 
-    // Validasi total harus sama dengan perhitungan (jika total diinput)
-    if (total) {
-      const inputTotal = parseFloat(total);
-      if (Math.abs(inputTotal - calculatedTotal) > 0.01) {
-        return res.status(400).json({
-          success: false,
-          message: `Total tidak sesuai. Input: ${inputTotal}, Hitung: ${calculatedTotal.toFixed(2)}`
-        });
-      }
-    }
-
-    // Create return
+    // Create return - TIDAK PERLU kirim total, akan dihitung otomatis
+    // TIDAK PERLU kirim nama_produk, akan diambil otomatis dari database
     const returnId = await ReturnModel.create({
       tanggal,
-      total: calculatedTotal,
       users_id: parseInt(users_id),
       toko_id: parseInt(toko_id),
       keterangan: keterangan || null,
