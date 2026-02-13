@@ -32,6 +32,7 @@ const returnRoutes= require('./src/routes/returnRoutes');
 const stokOpnameRoutes= require('./src/routes/stokOpnameRoutes');
 const pembelianRoutes= require('./src/routes/pembelianRoutes')
 const transaksiRoutes= require('./src/routes/transaksiRoutes')
+const laporanRoutes= require('./src/routes/laporanRoutes');
 // ==================== REGISTER ROUTES ====================
 app.use('/api/toko', tokoRoutes);
 app.use('/api/produk',produkRoutes);
@@ -45,6 +46,7 @@ app.use('/api/stok_opname',stokOpnameRoutes);
 app.use('/api/pembelian',pembelianRoutes);
 app.use('/api/transaksi',transaksiRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/laporan', laporanRoutes);
 // ==================== BASIC ROUTES ====================
 app.get('/', (req, res) => {
   res.json({

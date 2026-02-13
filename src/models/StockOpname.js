@@ -28,8 +28,8 @@ class StokOpname {
       if (produk) {
         await conn.query(
           `INSERT INTO detail_stok_opname 
-          (stok_opname_id, produk_id, selisih, stok_asli, stok_data, harga_beli, subtotal, created_at)
-          VALUES (?, ?, 0, NULL, ?, ?, 0, NOW())`,
+          (stok_opname_id, produk_id, selisih, stok_asli, stok_data, harga_beli,  created_at)
+          VALUES (?, ?, 0, NULL, ?, ?,  NOW())`,
           [stokOpnameId, produk_id, produk.stok, produk.harga_beli]
         );
       }
@@ -66,7 +66,7 @@ class StokOpname {
         SELECT
           d.*,
           p.nama_produk,
-          p.kode_produk,
+          p.barcode,
           p.stok AS stok_sekarang
         FROM detail_stok_opname d
         LEFT JOIN produk p ON p.id = d.produk_id
@@ -108,8 +108,6 @@ class StokOpname {
     // 2. Hitung selisih (stok_asli - stok_data)
     const selisih = stok_asli - detail.stok_data;
     
-    // 3. Hitung subtotal (selisih * harga_beli)
-    const subtotal = selisih * detail.harga_beli;
 
     // 4. Update detail stok opname
     await conn.query(`
@@ -117,10 +115,9 @@ class StokOpname {
       SET 
         stok_asli = ?,
         selisih = ?,
-        subtotal = ?,
         created_at = NOW()
       WHERE id = ?
-    `, [stok_asli, selisih, subtotal, id]);
+    `, [stok_asli, selisih, id]);
 
     // 5. Jika ada selisih (stok berubah), buat mutasi stok
     if (selisih !== 0) {
@@ -165,7 +162,6 @@ class StokOpname {
       stok_data: detail.stok_data,
       stok_asli,
       selisih,
-      subtotal,
       harga_beli: detail.harga_beli
     };
   }
@@ -198,10 +194,23 @@ class StokOpname {
     
     // Tentukan status
     let status = 'draft';
-    if (statusCheck.total_detail > 0 && statusCheck.belum_diisi === 0) {
-      status = 'completed';
-    } else if (statusCheck.total_detail > 0 && statusCheck.belum_diisi < statusCheck.total_detail) {
-      status = 'partial';
+    if (statusCheck.total_detail > 0) {
+      if (statusCheck.belum_diisi === 0) {
+        // Semua sudah diisi, cek apakah ada selisih
+        if (totals.totalselisih === 0) {
+          // Tidak ada selisih, langsung approved
+          status = 'approved';
+        } else if (totals.totalselisih < 0) {
+          // Ada selisih negatif (rugi), perlu review
+          status = 'approved'; // atau 'rejected' tergantung kebijakan
+        } else {
+          // Ada selisih positif (kelebihan)
+          status = 'approved';
+        }
+      } else if (statusCheck.belum_diisi < statusCheck.total_detail) {
+        // Sebagian sudah diisi
+        status = 'approved';
+      }
     }
 
     // 3. Update header
@@ -251,8 +260,8 @@ class StokOpname {
     // 3. Tambahkan produk ke detail
     await conn.query(`
       INSERT INTO detail_stok_opname 
-      (stok_opname_id, produk_id, selisih, stok_asli, stok_data, harga_beli, subtotal, created_at)
-      VALUES (?, ?, 0, NULL, ?, ?, 0, NOW())
+      (stok_opname_id, produk_id, selisih, stok_asli, stok_data, harga_beli,  created_at)
+      VALUES (?, ?, 0, NULL, ?, ?,  NOW())
     `, [stok_opname_id, produk_id, produk.stok, produk.harga_beli]);
 
     // 4. Update status header ke draft (karena ada detail baru)
@@ -405,9 +414,47 @@ class StokOpname {
   // =========================
   // GET BY TOKO ID
   // =========================
-  static async getByToko(toko_id, page = 1, limit = 10) {
-    return await this.getAll(page, limit, { toko_id });
-  }
+      static async getByToko(toko_id, page = 1, limit = 10) {
+        const offset = (page - 1) * limit;
+
+        // 🔹 Ambil data
+        const [rows] = await db.query(
+          `
+          SELECT *
+          FROM stok_opname
+          WHERE toko_id = ?
+          ORDER BY created_at DESC
+          LIMIT ? OFFSET ?
+          `,
+          [toko_id, limit, offset]
+        );
+
+        // 🔹 Hitung total data
+        const [countRows] = await db.query(
+          `
+          SELECT COUNT(*) as total
+          FROM stok_opname
+          WHERE toko_id = ?
+          `,
+          [toko_id]
+        );
+
+        const total = countRows[0].total;
+        const totalPages = Math.ceil(total / limit);
+
+        return {
+          data: rows,
+          pagination: {
+            total,
+            page,
+            limit,
+            total_pages: totalPages,
+            has_next: page < totalPages,
+            has_prev: page > 1
+          }
+        };
+      }
+
 
   // =========================
   // DELETE STOK OPNAME

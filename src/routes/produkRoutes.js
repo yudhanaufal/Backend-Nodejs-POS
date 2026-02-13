@@ -35,4 +35,7 @@ router.patch('/:id/stok', produkController.updateStok);
 // DELETE produk
 router.delete('/:id', produkController.deleteProduk);
 
+// GET mutasi produk
+router.get('/:produk_id/mutasi', produkController.getMutasiProduk);
+
 module.exports = router;

@@ -56,35 +56,44 @@ exports.getTransaksiById = async (req, res) => {
         const data = await Transaksi.getById(id);
 
         if (!data) {
-            return res.status(404).json({ message: "Transaksi tidak ditemukan" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ message: "Gagal mengambil data", error: error.message });
-    }
-};
-
-exports.getTransaksiByToko = async (req, res) => {
-    try {
-        const toko_id = req.params.id;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-
-        const data = await Transaksi.getByToko(toko_id, page, limit);
-
-        if (!data || data.data.length === 0) {
-            return res.status(404).json({
-                message: "Transaksi tidak ditemukan"
+            return res.status(404).json({ 
+                message: "Transaksi tidak ditemukan" 
             });
         }
 
-        res.json(data);
+        res.json({
+            message: "Berhasil mengambil data transaksi",
+            data: data
+        });
     } catch (error) {
-        res.status(500).json({
-            message: "Gagal mengambil data",
-            error: error.message
+        res.status(500).json({ 
+            message: "Gagal mengambil data", 
+            error: error.message 
         });
     }
 };
 
+exports.getByToko= async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tanggal, page, limit } = req.query;
+
+        const result = await Transaksi.getByToko(
+            id, 
+            tanggal, // contoh: 2026-01-30
+            page, 
+            limit
+        );
+
+        res.status(200).json({
+            status: "success",
+            message: "Data transaksi berhasil diambil",
+            ...result
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: "error",
+            message: error.message
+        });
+    }
+};

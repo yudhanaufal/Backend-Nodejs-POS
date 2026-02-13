@@ -1,126 +1,158 @@
 const db = require('../config/Connection');
 
 class Transaksi {
-  static async generateInvoice() {
+    static async generateInvoice(toko_id) {
         const date = new Date();
         const ymd = date.toISOString().slice(0, 10).replace(/-/g, '');
+        
+        // Hitung hanya transaksi milik toko_id tertentu di hari ini
         const [rows] = await db.query(
-            "SELECT COUNT(*) as total FROM Transaksi WHERE DATE(Tanggal) = CURDATE()"
+            "SELECT COUNT(*) as total FROM Transaksi WHERE toko_id = ? AND DATE(Tanggal) = CURDATE()",
+            [toko_id]
         );
+
         const nextNumber = (rows[0].total + 1).toString().padStart(3, '0');
-        return `INV/${ymd}/${nextNumber}`;
+        
+        // Format: INV/T1/20260130/001 (T1 adalah contoh kode toko)
+        return `INV/T${toko_id}/${ymd}/${nextNumber}`;
     }
 
-    static async create(data) {
-        const { items, member_id, user_id, bayar, metode, toko_id, status } = data;
-        const connection = await db.getConnection();
-        await connection.beginTransaction();
+   static async create(data) {
+    const { items, member_id, user_id, bayar, metode, toko_id, status } = data;
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
 
-        try {
-            // 1. Ambil Nama Kasir (User)
-            const [user] = await connection.query('SELECT nama_lengkap FROM users WHERE id = ?', [user_id]);
-            const namaKasir = user[0]?.nama_lengkap || 'Unknown';
+    try {
+        // 1. Ambil Data Toko (Tambahan baru)
+        const [toko] = await connection.query(
+            'SELECT nama_toko, telepon, alamat FROM toko WHERE id = ?', 
+            [toko_id]
+        );
+        
+        if (!toko[0]) {
+            throw new Error('Toko tidak ditemukan');
+        }
+        
+        const namaToko = toko[0].nama_toko;
+        const noTlpToko = toko[0].telepon;
+        const alamatToko = toko[0].alamat;
 
-            // 2. Ambil Nama Member
-            let namaMember = 'Non-Member';
-            if (member_id) {
-                const [member] = await connection.query('SELECT nama_member FROM member WHERE id = ?', [member_id]);
-                namaMember = member[0]?.nama_member || 'Non-Member';
-            }
+        // 2. Ambil Nama Kasir (User)
+        const [user] = await connection.query('SELECT nama_lengkap FROM users WHERE id = ?', [user_id]);
+        const namaKasir = user[0]?.nama_lengkap || 'Unknown';
 
-            let totalTransaksi = 0;
-            let totalLabaTransaksi = 0;
-            let totalDiskonTransaksi = 0;
-            const preparedItems = [];
+        // 3. Ambil Nama Member
+        let namaMember = 'Non-Member';
+        if (member_id) {
+            const [member] = await connection.query('SELECT nama_member FROM member WHERE id = ?', [member_id]);
+            namaMember = member[0]?.nama_member || 'Non-Member';
+        }
 
-            // 3. Olah Items (Ambil Data Produk & Hitung Otomatis)
-            for (const item of items) {
-                const [produk] = await connection.query(
-                    'SELECT nama_produk, harga_jual, harga_beli, stok FROM produk WHERE id = ?', 
-                    [item.produk_id]
-                );
+        let totalTransaksi = 0;
+        let totalLabaTransaksi = 0;
+        let totalDiskonTransaksi = 0;
+        const preparedItems = [];
 
-                if (!produk[0]) throw new Error(`Produk ID ${item.produk_id} tidak ditemukan`);
-                if (produk[0].stok < item.qty) throw new Error(`Stok ${produk[0].nama_produk} habis!`);
-
-                const p = produk[0];
-                const diskonPerItem = item.diskon || 0;
-                const subtotal = (p.harga_jual - diskonPerItem) * item.qty;
-                const labaPerItem = (p.harga_jual - p.harga_beli - diskonPerItem) * item.qty;
-
-                totalTransaksi += subtotal;
-                totalLabaTransaksi += labaPerItem;
-                totalDiskonTransaksi += (diskonPerItem * item.qty);
-
-                preparedItems.push({
-                    ...item,
-                    nama_produk: p.nama_produk,
-                    harga_jual: p.harga_jual,
-                    harga_beli: p.harga_beli,
-                    laba: labaPerItem,
-                    subtotal: subtotal,
-                    diskon: diskonPerItem
-                });
-            }
-
-            const invoice = await this.generateInvoice();
-            const kembali = bayar - totalTransaksi;
-
-            // 4. Simpan ke Tabel Transaksi
-            const [resT] = await connection.query(
-                `INSERT INTO Transaksi 
-                (Invoice, Total, kembali, Member, Metode, Kasir, Status, total_laba, total_diskon, toko_id, member_id, user_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [invoice, totalTransaksi, kembali, namaMember, metode, namaKasir, status, totalLabaTransaksi, totalDiskonTransaksi, toko_id, member_id, user_id]
+        // 4. Olah Items (Ambil Data Produk & Hitung Otomatis)
+        for (const item of items) {
+            const [produk] = await connection.query(
+                'SELECT nama_produk, harga_jual, harga_beli, stok FROM produk WHERE id = ? AND toko_id = ?', 
+                [item.produk_id, toko_id] // Saya tambahkan toko_id untuk validasi
             );
 
-            // 5. Simpan Detail & Update Stok
-            for (const pi of preparedItems) {
-                await connection.query(
-                    `INSERT INTO Detail_Transaksi 
-                    (transaksi_id, produk_id, Nama_produk, Harga_Jual, Harga_beli, Laba, Diskon, Quantity, Subtotal) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [resT.insertId, pi.produk_id, pi.nama_produk, pi.harga_jual, pi.harga_beli, pi.laba, pi.diskon, pi.qty, pi.subtotal]
-                );
+            if (!produk[0]) throw new Error(`Produk ID ${item.produk_id} tidak ditemukan di toko ini`);
+            if (produk[0].stok < item.qty) throw new Error(`Stok ${produk[0].nama_produk} habis!`);
 
-                await connection.query('UPDATE produk SET stok = stok - ? WHERE id = ?', [pi.qty, pi.produk_id]);
+            const p = produk[0];
+            const diskonPerItem = item.diskon || 0;
+            const subtotal = (p.harga_jual - diskonPerItem) * item.qty;
+            const labaPerItem = (p.harga_jual - p.harga_beli - diskonPerItem) * item.qty;
 
-                // 1. Ambil nilai stok terbaru setelah di-update untuk kolom stok_sesudah
-                const [stokTerbaru] = await connection.query(
-                    'SELECT stok FROM produk WHERE id = ?', 
-                    [pi.produk_id]
-                );
-                const stok_sesudah = stokTerbaru[0].stok;
-                const stok_sebelum = stok_sesudah + pi.qty; // Stok sebelum adalah sesudah + qty yang dikurangi
+            totalTransaksi += subtotal;
+            totalLabaTransaksi += labaPerItem;
+            totalDiskonTransaksi += (diskonPerItem * item.qty);
 
-                // 2. Jalankan Query Mutasi Stok
-                await connection.query(
-                    `INSERT INTO mutasi_stok 
-                    (produk_id, toko_id, quantity, stok_sebelum, stok_sesudah, tipe, sumber, ref_id, harga_beli, harga_jual, created_at) 
-                    VALUES (?, ?, ?, ?, ?, 'keluar', 'penjualan', ?, ?, ?, NOW())`,
-                    [
-                        pi.produk_id, 
-                        toko_id, 
-                        pi.qty, 
-                        stok_sebelum, 
-                        stok_sesudah, 
-                        resT.insertId, // ref_id diisi ID Transaksi induk
-                        pi.harga_beli, 
-                        pi.harga_jual
-                    ]
-                );
-            }
-            
-            await connection.commit();
-            return { invoice, total: totalTransaksi,namaMember, namaKasir,kembali,preparedItems };
-        } catch (error) {
-            await connection.rollback();
-            throw error;
-        } finally {
-            connection.release();
+            preparedItems.push({
+                ...item,
+                nama_produk: p.nama_produk,
+                harga_jual: p.harga_jual,
+                harga_beli: p.harga_beli,
+                laba: labaPerItem,
+                subtotal: subtotal,
+                diskon: diskonPerItem
+            });
         }
-    }
 
+        const invoice = await this.generateInvoice(toko_id);
+        const kembali = bayar - totalTransaksi;
+
+        // 5. Simpan ke Tabel Transaksi
+        const [resT] = await connection.query(
+            `INSERT INTO Transaksi 
+            (Invoice, Total, kembali, Member, Metode, Kasir, Status, total_laba, total_diskon, toko_id, member_id, user_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [invoice, totalTransaksi, kembali, namaMember, metode, namaKasir, status, totalLabaTransaksi, totalDiskonTransaksi, toko_id, member_id, user_id]
+        );
+
+        // 6. Simpan Detail & Update Stok
+        for (const pi of preparedItems) {
+            await connection.query(
+                `INSERT INTO Detail_Transaksi 
+                (transaksi_id, produk_id, Nama_produk, Harga_Jual, Harga_beli, Laba, Diskon, Quantity, Subtotal) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [resT.insertId, pi.produk_id, pi.nama_produk, pi.harga_jual, pi.harga_beli, pi.laba, pi.diskon, pi.qty, pi.subtotal]
+            );
+
+            await connection.query('UPDATE produk SET stok = stok - ? WHERE id = ? AND toko_id = ?', 
+                [pi.qty, pi.produk_id, toko_id]);
+
+            // Ambil nilai stok terbaru
+            const [stokTerbaru] = await connection.query(
+                'SELECT stok FROM produk WHERE id = ? AND toko_id = ?', 
+                [pi.produk_id, toko_id]
+            );
+            const stok_sesudah = stokTerbaru[0].stok;
+            const stok_sebelum = stok_sesudah + pi.qty;
+
+            // Jalankan Query Mutasi Stok
+            await connection.query(
+                `INSERT INTO mutasi_stok 
+                (produk_id, toko_id, quantity, stok_sebelum, stok_sesudah, tipe, sumber, ref_id, harga_beli, harga_jual, created_at) 
+                VALUES (?, ?, ?, ?, ?, 'keluar', 'penjualan', ?, ?, ?, NOW())`,
+                [
+                    pi.produk_id, 
+                    toko_id, 
+                    pi.qty, 
+                    stok_sebelum, 
+                    stok_sesudah, 
+                    resT.insertId,
+                    pi.harga_beli, 
+                    pi.harga_jual
+                ]
+            );
+        }
+        
+        await connection.commit();
+        
+        // Response dengan data toko
+        return { 
+            invoice, 
+            total: totalTransaksi,
+            namaMember, 
+            namaKasir,
+            kembali,
+            nama_toko: namaToko,
+            telepon: noTlpToko,
+            alamat: alamatToko,
+            preparedItems
+        };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+}
     // static async getAll() {
     //     // Query Join untuk melihat transaksi beserta detailnya
        
@@ -157,61 +189,69 @@ static async getTransaksi(page = 1, limit = 10) {
     };
 }
 
-static async getById(id, page = 1, limit = 10) {
-    const offset = (page - 1) * limit;
-
-    const [data] = await db.query(
-        `SELECT * FROM detail_transaksi 
-         WHERE transaksi_id = ?
-         LIMIT ? OFFSET ?`,
-        [id, limit, offset]
+static async getById(id) {
+    // Ambil data utama transaksi beserta data toko
+    const [transaksi] = await db.query(
+        `SELECT t.*, tk.nama_toko, tk.telepon, tk.alamat 
+         FROM transaksi t
+         LEFT JOIN toko tk ON t.toko_id = tk.id
+         WHERE t.id = ?`,
+        [id]
     );
 
-    const [[{ total }]] = await db.query(
-        `SELECT COUNT(*) AS total 
-         FROM detail_transaksi 
-         WHERE transaksi_id = ?`,
+    // Jika transaksi tidak ditemukan, kembalikan null agar controller bisa menangani
+    if (transaksi.length === 0) return null;
+
+    // Ambil semua detail transaksi tanpa batasan (pagination)
+    const [detail] = await db.query(
+        `SELECT * FROM detail_transaksi WHERE transaksi_id = ?`,
         [id]
     );
 
     return {
-        data,
-        pagination: {
-            total,
-            page,
-            limit,
-            totalPage: Math.ceil(total / limit)
-        }
+        ...transaksi[0], // Mengambil objek pertama agar tidak berbentuk array di dalam array
+        detail
     };
 }
-static async getByToko(toko_id, page = 1, limit = 10) {
-    const offset = (page - 1) * limit;
 
-    const [data] = await db.query(
-        `SELECT * FROM transaksi 
-         WHERE toko_id = ?
-         ORDER BY created_at DESC
-         LIMIT ? OFFSET ?`,
-        [toko_id, limit, offset]
-    );
+static async getByToko(toko_id, date = null, page = 1, limit = 50) {
+        const offset = (page - 1) * limit;
+        let queryParams = [toko_id];
+        let dateFilter = "";
 
-    const [[{ total }]] = await db.query(
-        `SELECT COUNT(*) AS total 
-         FROM transaksi 
-         WHERE toko_id = ?`,
-        [toko_id]
-    );
-
-    return {
-        data,
-        pagination: {
-            total,
-            page,
-            limit,
-            totalPage: Math.ceil(total / limit)
+        // Tambahkan filter tanggal jika ada (Format: YYYY-MM-DD)
+        if (date) {
+            dateFilter = "AND DATE(Tanggal) = ?";
+            queryParams.push(date);
         }
-    };
-}
+
+        // Query Ambil Data
+        const sqlData = `
+            SELECT * FROM transaksi 
+            WHERE toko_id = ? ${dateFilter}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?`;
+        
+        const [data] = await db.query(sqlData, [...queryParams, limit, offset]);
+
+        // Query Hitung Total untuk Pagination
+        const sqlCount = `
+            SELECT COUNT(*) AS total 
+            FROM transaksi 
+            WHERE toko_id = ? ${dateFilter}`;
+        
+        const [[{ total }]] = await db.query(sqlCount, queryParams);
+
+        return {
+            data,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPage: Math.ceil(total / limit)
+            }
+        };
+    }
 
     static async cancel(transaksiId, data) {
         const { user_id, alasan } = data; // Opsional: untuk mencatat siapa yang cancel

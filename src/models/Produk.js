@@ -21,7 +21,7 @@ class Produk {
   /**
    * GET ALL - Get all produk dengan pagination
    */
-  static async getAll(page = 1, limit = 10, filters = {}) {
+  static async getAll(page = 1, limit = 500, filters = {}) {
     const offset = (page - 1) * limit;
     let whereClause = '';
     const params = [];
@@ -100,7 +100,7 @@ class Produk {
   /**
    * GET BY TOKO - Get produk by toko_id
    */
-  static async getByTokoId(tokoId, page = 1, limit = 10) {
+  static async getByTokoId(tokoId, page = 1, limit = 500) {
     const offset = (page - 1) * limit;
     
     const [rows] = await db.query(
@@ -137,7 +137,7 @@ class Produk {
    * UPDATE - Update produk
    */
   static async update(id, data) {
-    const { nama_produk, harga_beli, harga_jual, stok, gambar, toko_id } = data;
+    const { nama_produk,barcode, harga_beli, harga_jual, stok, gambar, toko_id } = data;
     
     // Jika ada gambar baru dan ingin hapus gambar lama
     if (gambar !== undefined) {
@@ -150,10 +150,10 @@ class Produk {
     
     const [result] = await db.query(
       `UPDATE produk 
-       SET nama_produk = ?, harga_beli = ?, harga_jual = ?, 
+       SET nama_produk = ?, barcode = ?, harga_beli = ?, harga_jual = ?, 
            stok = ?, gambar = ?, toko_id = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [nama_produk, harga_beli, harga_jual, stok, gambar || null, toko_id, id]
+      [nama_produk, barcode, harga_beli, harga_jual, stok, gambar || null, toko_id, id]
     );
     
     return result.affectedRows > 0;
@@ -270,6 +270,36 @@ class Produk {
       ...produk,
       gambar_url: produk.gambar ? this.getImageUrl(produk.gambar) : null
     }));
+  }
+
+  static async findById(produk_id) {
+    const [rows] = await db.query(
+      `SELECT id, nama_produk, harga_beli, harga_jual, stok
+       FROM produk
+       WHERE id = ?`,
+      [produk_id]
+    );
+    return rows[0];
+  }
+
+  static async getMutasiByProduk(produk_id) {
+    const [rows] = await db.query(
+      `SELECT 
+        id,
+        tipe,
+        sumber,
+        quantity,
+        stok_sebelum,
+        stok_sesudah,
+        harga_beli,
+        harga_jual,
+        created_at
+      FROM mutasi_stok
+      WHERE produk_id = ?
+      ORDER BY created_at ASC`,
+      [produk_id]
+    );
+    return rows;
   }
 
   /**

@@ -126,7 +126,7 @@ exports.createProduk = async (req, res) => {
 exports.getAllProduk = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 500;
     const toko_id = req.query.toko_id;
     const search = req.query.search;
     
@@ -200,7 +200,7 @@ exports.getProdukByToko = async (req, res) => {
   try {
     const { toko_id } = req.params;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 500;
     
     // Validasi toko_id
     if (!toko_id || isNaN(toko_id)) {
@@ -673,3 +673,33 @@ exports.getLowStock = async (req, res) => {
     });
   }
 };
+
+exports.getMutasiProduk = async (req, res) => {
+    try {
+      const { produk_id } = req.params;
+
+      const produk = await Produk.findById(produk_id);
+      if (!produk) {
+        return res.status(404).json({
+          success: false,
+          message: 'Produk tidak ditemukan'
+        });
+      }
+
+      const mutasi = await Produk.getMutasiByProduk(produk_id);
+
+      res.json({
+        success: true,
+        produk,
+        mutasi
+      });
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan server'
+      });
+    }
+  };
+

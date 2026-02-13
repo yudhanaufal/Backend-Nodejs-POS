@@ -7,6 +7,6 @@ router.post('/', transaksiController.createTransaksi);
 router.get('/',transaksiController.getTransaksi);
 router.get('/:id',transaksiController.getTransaksiById);
 router.patch('/cancel/:id',transaksiController.cancelTransaksi);
-router.get('/toko/:id',transaksiController.getTransaksiByToko)
+router.get('/toko/:id',transaksiController.getByToko);
 
 module.exports = router;

@@ -362,10 +362,11 @@ exports.getByToko = async (req, res) => {
     console.error('Get By Toko Error:', error);
     res.status(500).json({
       success: false,
-      message: 'Gagal mengambil data stok opname'
+      message: error.message || 'Gagal mengambil data stok opname'
     });
   }
 };
+
 
 // =========================
 // DELETE STOK OPNAME
