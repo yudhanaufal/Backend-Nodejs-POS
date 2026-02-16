@@ -7,7 +7,7 @@ class Transaksi {
         
         // Hitung hanya transaksi milik toko_id tertentu di hari ini
         const [rows] = await db.query(
-            "SELECT COUNT(*) as total FROM Transaksi WHERE toko_id = ? AND DATE(Tanggal) = CURDATE()",
+            "SELECT COUNT(*) as total FROM transaksi WHERE toko_id = ? AND DATE(Tanggal) = CURDATE()",
             [toko_id]
         );
 
@@ -88,7 +88,7 @@ class Transaksi {
 
         // 5. Simpan ke Tabel Transaksi
         const [resT] = await connection.query(
-            `INSERT INTO Transaksi 
+            `INSERT INTO transaksi 
             (Invoice, Total, kembali, Member, Metode, Kasir, Status, total_laba, total_diskon, toko_id, member_id, user_id) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [invoice, totalTransaksi, kembali, namaMember, metode, namaKasir, status, totalLabaTransaksi, totalDiskonTransaksi, toko_id, member_id, user_id]
@@ -97,7 +97,7 @@ class Transaksi {
         // 6. Simpan Detail & Update Stok
         for (const pi of preparedItems) {
             await connection.query(
-                `INSERT INTO Detail_Transaksi 
+                `INSERT INTO detail_transaksi 
                 (transaksi_id, produk_id, Nama_produk, Harga_Jual, Harga_beli, Laba, Diskon, Quantity, Subtotal) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [resT.insertId, pi.produk_id, pi.nama_produk, pi.harga_jual, pi.harga_beli, pi.laba, pi.diskon, pi.qty, pi.subtotal]
@@ -261,7 +261,7 @@ static async getByToko(toko_id, date = null, page = 1, limit = 50) {
         try {
             // 1. Cek apakah transaksi ada dan statusnya belum 'Cancel'
             const [transaksi] = await connection.query(
-                'SELECT Status, toko_id FROM Transaksi WHERE id = ?', 
+                'SELECT Status, toko_id FROM transaksi WHERE id = ?', 
                 [transaksiId]
             );
 
@@ -272,7 +272,7 @@ static async getByToko(toko_id, date = null, page = 1, limit = 50) {
 
             // 2. Ambil semua detail item dari transaksi tersebut
             const [details] = await connection.query(
-                'SELECT produk_id, Quantity, Harga_Beli, Harga_Jual FROM Detail_Transaksi WHERE transaksi_id = ?',
+                'SELECT produk_id, Quantity, Harga_Beli, Harga_Jual FROM detail_transaksi WHERE transaksi_id = ?',
                 [transaksiId]
             );
 
@@ -300,7 +300,7 @@ static async getByToko(toko_id, date = null, page = 1, limit = 50) {
 
             // 4. Ubah status transaksi menjadi 'Cancel'
             await connection.query(
-                'UPDATE Transaksi SET Status = "Cancel" WHERE id = ?',
+                'UPDATE transaksi SET Status = "Cancel" WHERE id = ?',
                 [transaksiId]
             );
 

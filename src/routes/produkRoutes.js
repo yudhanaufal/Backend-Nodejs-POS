@@ -5,17 +5,17 @@ const produkController = require('../controllers/produkController');
 // GET all produk
 router.get('/', produkController.getAllProduk);
 
-// GET produk by ID
-router.get('/:id', produkController.getProdukById);
-
-// GET produk by toko
-router.get('/toko/:toko_id', produkController.getProdukByToko);
-
-// SEARCH produk
+// SEARCH produk (must be before /:id)
 router.get('/search/all', produkController.searchProduk);
 
-// GET low stock products
+// GET low stock products (must be before /:id)
 router.get('/inventory/low-stock', produkController.getLowStock);
+
+// GET produk by toko (must be before /:id)
+router.get('/toko/:toko_id', produkController.getProdukByToko);
+
+// GET produk by ID (must be after specific routes)
+router.get('/:id', produkController.getProdukById);
 
 // POST create produk (dengan gambar)
 router.post('/', produkController.createProduk);

@@ -11,7 +11,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files untuk uploads
-app.use('./uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Static files untuk customer catalog (public folder)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Logging middleware
 app.use((req, res, next) => {

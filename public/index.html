@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Katalog Produk - Lihat produk dan stok barang secara realtime"
+    />
+    <title>Katalog Produk - Customer Portal</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Header Section -->
+    <header class="header">
+      <div class="container">
+        <div class="header-content">
+          <h1 class="logo">
+            <span class="logo-icon">🛒</span>
+            Katalog Produk
+          </h1>
+          <p class="tagline">Lihat produk dan stok secara realtime</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="container">
+        <!-- Store Selection Section -->
+        <section class="store-section">
+          <div class="section-header">
+            <h2>Pilih Toko</h2>
+            <div class="refresh-indicator" id="refreshIndicator">
+              <span class="refresh-dot"></span>
+              <span class="refresh-text">Auto-refresh aktif</span>
+            </div>
+          </div>
+          <div class="store-selector-wrapper">
+            <select id="storeSelector" class="store-selector">
+              <option value="">-- Pilih Toko --</option>
+            </select>
+            <div class="selector-icon">▼</div>
+          </div>
+        </section>
+
+        <!-- Search Section -->
+        <section
+          class="search-section"
+          id="searchSection"
+          style="display: none"
+        >
+          <div class="search-wrapper">
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input"
+              placeholder="🔍 Cari produk..."
+            />
+            <button id="clearSearch" class="clear-search" style="display: none">
+              ✕
+            </button>
+          </div>
+        </section>
+
+        <!-- Products Section -->
+        <section class="products-section" id="productsSection">
+          <!-- Loading State -->
+          <div id="loadingState" class="loading-state" style="display: none">
+            <div class="spinner"></div>
+            <p>Memuat produk...</p>
+          </div>
+
+          <!-- Empty State -->
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h3>Pilih Toko untuk Melihat Produk</h3>
+            <p>
+              Silakan pilih toko dari dropdown di atas untuk menampilkan katalog
+              produk
+            </p>
+          </div>
+
+          <!-- Error State -->
+          <div id="errorState" class="error-state" style="display: none">
+            <div class="error-icon">⚠️</div>
+            <h3>Terjadi Kesalahan</h3>
+            <p id="errorMessage">Gagal memuat data. Silakan coba lagi.</p>
+            <button id="retryButton" class="retry-button">Coba Lagi</button>
+          </div>
+
+          <!-- Products Grid -->
+          <div id="productsGrid" class="products-grid" style="display: none">
+            <!-- Products will be inserted here dynamically -->
+          </div>
+
+          <!-- No Results State -->
+          <div id="noResultsState" class="empty-state" style="display: none">
+            <div class="empty-icon">🔍</div>
+            <h3>Produk Tidak Ditemukan</h3>
+            <p>Tidak ada produk yang sesuai dengan pencarian Anda</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; 2026 Katalog Produk. Stok diperbarui secara realtime.</p>
+      </div>
+    </footer>
+
+    <!-- Floating Cart Button -->
+    <button id="cartButton" class="cart-button" style="display: none;">
+      <span class="cart-icon">🛒</span>
+      <span class="cart-badge" id="cartBadge">0</span>
+    </button>
+
+    <!-- Cart Modal -->
+    <div id="cartModal" class="cart-modal">
+      <div class="cart-overlay" id="cartOverlay"></div>
+      <div class="cart-content">
+        <div class="cart-header">
+          <h2>🛒 Keranjang Belanja</h2>
+          <button id="closeCart" class="close-cart">✕</button>
+        </div>
+        
+        <div class="cart-body" id="cartBody">
+          <!-- Cart items will be inserted here -->
+          <div class="cart-empty" id="cartEmpty">
+            <div class="empty-cart-icon">🛒</div>
+            <p>Keranjang belanja kosong</p>
+            <small>Tambahkan produk untuk mulai berbelanja</small>
+          </div>
+        </div>
+        
+        <div class="cart-footer" id="cartFooter" style="display: none;">
+          <div class="cart-total">
+            <span>Total:</span>
+            <span class="total-price" id="totalPrice">Rp 0</span>
+          </div>
+          <button id="whatsappButton" class="whatsapp-button">
+            <span>📱 Pesan via WhatsApp</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
