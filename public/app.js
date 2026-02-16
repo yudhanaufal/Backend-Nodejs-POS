@@ -1,5 +1,5 @@
 // ==================== Configuration ====================
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = '/api';
 const AUTO_REFRESH_INTERVAL = 60000; // 60 seconds (1 minute)
 
 // ==================== State Management ====================
@@ -42,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initializeApp() {
-    console.log('🚀 Initializing Customer Catalog App...');
+    console.log('🚀 Initializing Customer Catalog App [v1.0.3-vps-fix]');
+    console.log('📡 API Base URL:', API_BASE_URL);
     await loadStores();
     setupEventListeners();
 }
@@ -197,8 +198,12 @@ function createProductCard(product) {
     
     // Image URL
     const imageUrl = product.gambar 
-        ? `http://localhost:3000/uploads/produk/${product.gambar}` 
+        ? `/uploads/produk/${product.gambar}` 
         : null;
+    
+    if (imageUrl) {
+        console.log(`🖼️ Loading product image: ${imageUrl} (Base: ${window.location.origin})`);
+    }
     
     // Check if item is in cart
     const isInCart = cart.some(item => item.id === product.id);
@@ -452,7 +457,7 @@ function renderCart() {
         cartItem.className = 'cart-item';
         
         const imageUrl = item.gambar 
-            ? `http://localhost:3000/uploads/produk/${item.gambar}` 
+            ? `/uploads/produk/${item.gambar}` 
             : null;
         
         cartItem.innerHTML = `
