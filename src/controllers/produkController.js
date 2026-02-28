@@ -106,6 +106,15 @@ exports.createProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
+        
+        // Handle uniqueness error or other business logic errors
+        if (error.message.includes('Nama produk sudah ada') || error.message.includes('Barcode sudah digunakan')) {
+          return res.status(400).json({
+            success: false,
+            message: error.message
+          });
+        }
+        
         throw error;
       }
     });
@@ -353,6 +362,15 @@ exports.updateProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
+        
+        // Handle uniqueness error or other business logic errors
+        if (error.message.includes('Nama produk sudah ada') || error.message.includes('Barcode sudah digunakan')) {
+          return res.status(400).json({
+            success: false,
+            message: error.message
+          });
+        }
+        
         throw error;
       }
     });

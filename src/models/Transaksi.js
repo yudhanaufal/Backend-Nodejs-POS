@@ -3,7 +3,7 @@ const db = require('../config/Connection');
 class Transaksi {
     static async generateInvoice(toko_id) {
         const date = new Date();
-        const ymd = date.toISOString().slice(0, 10).replace(/-/g, '');
+        const ymd = date.toLocaleDateString('sv-SE').replace(/-/g, '');
         
         // Hitung hanya transaksi milik toko_id tertentu di hari ini
         const [rows] = await db.query(

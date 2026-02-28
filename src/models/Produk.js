@@ -9,10 +9,16 @@ class Produk {
   static async create(data) {
     const { nama_produk, barcode, harga_beli, harga_jual, stok, gambar, toko_id } = data;
     
+    // Check uniqueness
+    const uniqueness = await this.isUnique({ nama_produk, barcode, toko_id });
+    if (!uniqueness.unique) {
+      throw new Error(uniqueness.message);
+    }
+    
     const [result] = await db.query(
-      `INSERT INTO produk (nama_produk,barcode, harga_beli, harga_jual, stok, gambar, toko_id) 
+      `INSERT INTO produk (nama_produk, barcode, harga_beli, harga_jual, stok, gambar, toko_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [nama_produk,barcode, harga_beli, harga_jual, stok || 0, gambar || null, toko_id]
+      [nama_produk, barcode, harga_beli, harga_jual, stok || 0, gambar || null, toko_id]
     );
     
     return result.insertId;
@@ -137,7 +143,13 @@ class Produk {
    * UPDATE - Update produk
    */
   static async update(id, data) {
-    const { nama_produk,barcode, harga_beli, harga_jual, stok, gambar, toko_id } = data;
+    const { nama_produk, barcode, harga_beli, harga_jual, stok, gambar, toko_id } = data;
+    
+    // Check uniqueness excluding current ID
+    const uniqueness = await this.isUnique({ nama_produk, barcode, toko_id }, id);
+    if (!uniqueness.unique) {
+      throw new Error(uniqueness.message);
+    }
     
     // Jika ada gambar baru dan ingin hapus gambar lama
     if (gambar !== undefined) {
@@ -347,6 +359,45 @@ class Produk {
     );
     
     return result.affectedRows > 0;
+  }
+
+  /**
+   * IS UNIQUE - Cek unique nama_produk dan barcode dalam toko_id yang sama
+   */
+  static async isUnique(data, excludeId = null) {
+    const { nama_produk, barcode, toko_id } = data;
+    
+    // Cek nama_produk
+    let nameQuery = 'SELECT id FROM produk WHERE nama_produk = ? AND toko_id = ?';
+    const nameParams = [nama_produk, toko_id];
+    
+    if (excludeId) {
+      nameQuery += ' AND id != ?';
+      nameParams.push(excludeId);
+    }
+    
+    const [nameRows] = await db.query(nameQuery, nameParams);
+    if (nameRows.length > 0) {
+      return { unique: false, message: 'Nama produk sudah ada di toko ini' };
+    }
+    
+    // Cek barcode
+    if (barcode) {
+      let barcodeQuery = 'SELECT id FROM produk WHERE barcode = ? AND toko_id = ?';
+      const barcodeParams = [barcode, toko_id];
+      
+      if (excludeId) {
+        barcodeQuery += ' AND id != ?';
+        barcodeParams.push(excludeId);
+      }
+      
+      const [barcodeRows] = await db.query(barcodeQuery, barcodeParams);
+      if (barcodeRows.length > 0) {
+        return { unique: false, message: 'Barcode sudah digunakan di toko ini' };
+      }
+    }
+    
+    return { unique: true };
   }
 }
 
