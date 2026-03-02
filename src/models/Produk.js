@@ -33,14 +33,14 @@ class Produk {
     const params = [];
     
     if (filters.toko_id) {
-      whereClause = 'WHERE p.toko_id = ?';
+      whereClause = 'WHERE p.toko_id = ? AND p.deleted_at IS NULL';
       params.push(filters.toko_id);
+    } else {
+      whereClause = 'WHERE p.deleted_at IS NULL';
     }
     
     if (filters.search) {
-      whereClause = whereClause 
-        ? `${whereClause} AND p.nama_produk LIKE ?`
-        : 'WHERE p.nama_produk LIKE ?';
+      whereClause = `${whereClause} AND p.nama_produk LIKE ?`;
       params.push(`%${filters.search}%`);
     }
     
@@ -90,7 +90,7 @@ class Produk {
          t.alamat as toko_alamat
        FROM produk p
        LEFT JOIN toko t ON p.toko_id = t.id
-       WHERE p.id = ?`,
+       WHERE p.id = ? AND p.deleted_at IS NULL`,
       [id]
     );
     
@@ -111,7 +111,7 @@ class Produk {
     
     const [rows] = await db.query(
       `SELECT * FROM produk 
-       WHERE toko_id = ?
+       WHERE toko_id = ? AND deleted_at IS NULL
        ORDER BY nama_produk ASC
        LIMIT ? OFFSET ?`,
       [tokoId, limit, offset]
@@ -124,7 +124,7 @@ class Produk {
     }));
     
     const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) as total FROM produk WHERE toko_id = ?`,
+      `SELECT COUNT(*) as total FROM produk WHERE toko_id = ? AND deleted_at IS NULL`,
       [tokoId]
     );
     
@@ -164,7 +164,7 @@ class Produk {
       `UPDATE produk 
        SET nama_produk = ?, barcode = ?, harga_beli = ?, harga_jual = ?, 
            stok = ?, gambar = ?, toko_id = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
+       WHERE id = ? AND deleted_at IS NULL`,
       [nama_produk, barcode, harga_beli, harga_jual, stok, gambar || null, toko_id, id]
     );
     
@@ -176,7 +176,7 @@ class Produk {
    */
   static async updateStok(id, newStok) {
     const [result] = await db.query(
-      `UPDATE produk SET stok = ? WHERE id = ?`,
+      `UPDATE produk SET stok = ? WHERE id = ? AND deleted_at IS NULL`,
       [newStok, id]
     );
     
@@ -188,7 +188,7 @@ class Produk {
    */
   static async adjustStok(id, quantity) {
     const [result] = await db.query(
-      `UPDATE produk SET stok = stok + ? WHERE id = ?`,
+      `UPDATE produk SET stok = stok + ? WHERE id = ? AND deleted_at IS NULL`,
       [quantity, id]
     );
     
@@ -196,17 +196,11 @@ class Produk {
   }
 
   /**
-   * DELETE - Hapus produk
+   * DELETE - Hapus produk (Soft Delete)
    */
   static async delete(id) {
-    // Hapus gambar terlebih dahulu
-    const produk = await this.getById(id);
-    if (produk && produk.gambar) {
-      this.deleteImage(produk.gambar);
-    }
-    
     const [result] = await db.query(
-      'DELETE FROM produk WHERE id = ?',
+      'UPDATE produk SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
       [id]
     );
     
@@ -218,7 +212,7 @@ class Produk {
    */
   static async search(keyword, tokoId = null) {
     const searchTerm = `%${keyword}%`;
-    let query = `SELECT * FROM produk WHERE nama_produk LIKE ?`;
+    let query = `SELECT * FROM produk WHERE nama_produk LIKE ? AND deleted_at IS NULL`;
     const params = [searchTerm];
     
     if (tokoId) {
@@ -242,7 +236,7 @@ class Produk {
    */
   static async exists(id) {
     const [rows] = await db.query(
-      'SELECT 1 FROM produk WHERE id = ? LIMIT 1',
+      'SELECT 1 FROM produk WHERE id = ? AND deleted_at IS NULL LIMIT 1',
       [id]
     );
     
@@ -254,7 +248,7 @@ class Produk {
    */
   static async belongsToToko(produkId, tokoId) {
     const [rows] = await db.query(
-      'SELECT 1 FROM produk WHERE id = ? AND toko_id = ? LIMIT 1',
+      'SELECT 1 FROM produk WHERE id = ? AND toko_id = ? AND deleted_at IS NULL LIMIT 1',
       [produkId, tokoId]
     );
     
@@ -265,7 +259,7 @@ class Produk {
    * GET LOW STOCK - Produk dengan stok menipis
    */
   static async getLowStock(threshold = 10, tokoId = null) {
-    let query = `SELECT * FROM produk WHERE stok <= ?`;
+    let query = `SELECT * FROM produk WHERE stok <= ? AND deleted_at IS NULL`;
     const params = [threshold];
     
     if (tokoId) {
@@ -288,7 +282,7 @@ class Produk {
     const [rows] = await db.query(
       `SELECT id, nama_produk, harga_beli, harga_jual, stok
        FROM produk
-       WHERE id = ?`,
+       WHERE id = ? AND deleted_at IS NULL`,
       [produk_id]
     );
     return rows[0];
@@ -354,7 +348,7 @@ class Produk {
     }
     
     const [result] = await db.query(
-      `UPDATE produk SET gambar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      `UPDATE produk SET gambar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`,
       [filename, id]
     );
     
@@ -368,7 +362,7 @@ class Produk {
     const { nama_produk, barcode, toko_id } = data;
     
     // Cek nama_produk
-    let nameQuery = 'SELECT id FROM produk WHERE nama_produk = ? AND toko_id = ?';
+    let nameQuery = 'SELECT id FROM produk WHERE nama_produk = ? AND toko_id = ? AND deleted_at IS NULL';
     const nameParams = [nama_produk, toko_id];
     
     if (excludeId) {
@@ -383,7 +377,7 @@ class Produk {
     
     // Cek barcode
     if (barcode) {
-      let barcodeQuery = 'SELECT id FROM produk WHERE barcode = ? AND toko_id = ?';
+      let barcodeQuery = 'SELECT id FROM produk WHERE barcode = ? AND toko_id = ? AND deleted_at IS NULL';
       const barcodeParams = [barcode, toko_id];
       
       if (excludeId) {
