@@ -270,14 +270,10 @@ GROUP BY p.id
 ORDER BY p.tanggal DESC
 LIMIT ? OFFSET ?
 `;
-
-
 const [rows] = await pool.query(
 dataQuery,
 [...params, limit, offset]
 );
-
-
 // =====================
 // QUERY TOTAL
 // =====================
@@ -287,22 +283,24 @@ FROM pembelian p
 ${whereClause}
 `;
 
-
+const totalPembelian = 'SELECT SUM(total) as total_pembelian FROM pembelian WHERE toko_id = ?';
+  
 const [countResult] = await pool.query(countQuery, params);
+const [pembelianResult] = await pool.query(totalPembelian, [tokoId]);
 const total = countResult[0]?.total || 0;
 const totalPages = Math.ceil(total / limit);
-
+const total_pembelian = pembelianResult[0].total_pembelian || 0;
 
 return {
 data: rows,
 pagination: {
 page,
 limit,
-total,
+total_pembelian,
 totalPages
-}
+},
+total_pembelian
 };
-
 
 } catch (error) {
 console.error('Model getPembelianByToko error:', error);

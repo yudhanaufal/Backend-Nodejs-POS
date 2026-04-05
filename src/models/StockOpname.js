@@ -484,6 +484,26 @@ class StokOpname {
 
     return result.affectedRows > 0;
   }
+
+  static async cancel(conn, stok_opname_id) {
+    const [result] = await conn.query(
+      `UPDATE stok_opname SET status = 'cancelled' WHERE id = ?`,
+      [stok_opname_id]
+    );
+
+    const [detail] = await conn.query(
+      `SELECT * FROM detail_stok_opname WHERE stok_opname_id = ?`,
+      [stok_opname_id]
+    );
+
+    for (const d of detail) {
+      await this.updateStokAsli(conn, {
+        id: d.id,
+        stok_asli: d.stok_data
+      });
+    }
+    return result.affectedRows > 0;
+  }
 }
 
 module.exports = StokOpname;

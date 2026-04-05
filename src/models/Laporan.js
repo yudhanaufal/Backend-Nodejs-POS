@@ -125,6 +125,23 @@ const Laporan = {
     return rows;
   },
 
+  async getLaporanPembelian(startDate, endDate, toko_id) {
+    const query = `
+      SELECT
+        p.id AS pembelian_id,
+        p.invoice,
+        p.total AS total_pembelian,
+        p.tanggal
+      FROM pembelian p
+      WHERE p.tanggal BETWEEN ? AND ?
+        AND p.toko_id = ?
+      ORDER BY p.tanggal DESC
+    `;
+
+    const [rows] = await db.query(query, [startDate, endDate, toko_id]);
+    return rows;
+  },
+
   // =============================
   // REKAP TOTAL
   // =============================

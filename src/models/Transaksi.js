@@ -232,6 +232,10 @@ static async getByToko(toko_id, date = null, page = 1, limit = 50) {
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?`;
         
+        const totalOmset = 'SELECT SUM(Total) AS total_omset FROM transaksi WHERE toko_id = ? ' + dateFilter;
+        const [omsetResult] = await db.query(totalOmset, queryParams);
+        const total_omset = omsetResult[0].total_omset || 0;
+
         const [data] = await db.query(sqlData, [...queryParams, limit, offset]);
 
         // Query Hitung Total untuk Pagination
@@ -244,6 +248,7 @@ static async getByToko(toko_id, date = null, page = 1, limit = 50) {
 
         return {
             data,
+            total_omset,
             pagination: {
                 total,
                 page: parseInt(page),
