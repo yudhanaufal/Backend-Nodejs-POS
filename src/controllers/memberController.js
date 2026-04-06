@@ -133,7 +133,7 @@ exports.getMemberByToko = async (req, res) => {
   try {
     const { toko_id } = req.params;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 100;
     
     // Validasi toko_id
     if (!toko_id || isNaN(toko_id)) {
