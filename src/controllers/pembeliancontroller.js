@@ -97,48 +97,45 @@ const pembeliancontroller = {
   // ============================================
   // 4. GET PEMBELIAN BY TOKO
   // ============================================
- async getPembelianByToko(req, res) {
-try {
-const { toko_id } = req.params;
+  async getPembelianByToko(req, res) {
+    try {
+      const { toko_id } = req.params;
 
+      if (!toko_id || isNaN(toko_id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID toko harus berupa angka'
+        });
+      }
 
-if (!toko_id || isNaN(toko_id)) {
-return res.status(400).json({
-success: false,
-message: 'ID toko harus berupa angka'
-});
-}
+      const filters = {
+        page: parseInt(req.query.page) || 1,
+        limit: parseInt(req.query.limit) || 20,
+        status: req.query.status || 'ALL',
+        startDate: req.query.startDate,
+        endDate: req.query.endDate
+      };
 
+      const result = await pembelianModel.getPembelianByToko(
+        parseInt(toko_id),
+        filters
+      );
 
-const filters = {
-page: parseInt(req.query.page) || 1,
-limit: parseInt(req.query.limit) || 20,
-status: req.query.status || 'ALL'
-};
+      res.json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+        filters
+      });
 
-
-const result = await pembelianModel.getPembelianByToko(
-parseInt(toko_id),
-filters
-);
-
-
-res.json({
-success: true,
-data: result.data,
-pagination: result.pagination,
-filters
-});
-
-
-} catch (error) {
-console.error('Controller getPembelianByToko error:', error);
-res.status(500).json({
-success: false,
-message: 'Gagal mengambil data pembelian'
-});
-}
-},
+    } catch (error) {
+      console.error('Controller getPembelianByToko error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal mengambil data pembelian'
+      });
+    }
+  },
   // ============================================
   // 5. UPDATE HARGA BELI
   // ============================================

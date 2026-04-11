@@ -231,82 +231,97 @@ const Pembelian = {
   // 4. GET PEMBELIAN BY TOKO
   // ============================================
 async getPembelianByToko(tokoId, filters = {}) {
-try {
-const page = parseInt(filters.page) || 1;
-const limit = parseInt(filters.limit) || 20;
-const offset = (page - 1) * limit;
+    try {
+      const page = parseInt(filters.page) || 1;
+      const limit = parseInt(filters.limit) || 20;
+      const offset = (page - 1) * limit;
 
+      const params = [tokoId];
+      let whereClause = `WHERE p.toko_id = ?`;
 
-const params = [tokoId];
-let whereClause = `WHERE p.toko_id = ?`;
+      // filter status
+      if (filters.status && filters.status !== 'ALL') {
+        whereClause += ` AND p.status = ?`;
+        params.push(filters.status);
+      }
 
+      // filter range tanggal
+      if (filters.startDate && filters.endDate) {
+        whereClause += ` AND DATE(p.tanggal) BETWEEN ? AND ?`;
+        params.push(filters.startDate, filters.endDate);
+      } else if (filters.startDate) {
+        whereClause += ` AND DATE(p.tanggal) >= ?`;
+        params.push(filters.startDate);
+      } else if (filters.endDate) {
+        whereClause += ` AND DATE(p.tanggal) <= ?`;
+        params.push(filters.endDate);
+      }
 
-// filter status
-if (filters.status && filters.status !== 'ALL') {
-whereClause += ` AND p.status = ?`;
-params.push(filters.status);
-}
+      // =====================
+      // QUERY DATA
+      // =====================
+      const dataQuery = `
+        SELECT
+          p.id,
+          p.invoice,
+          p.total,
+          p.status,
+          DATE_FORMAT(p.tanggal, '%Y-%m-%d') AS tanggal,
+          p.users_id,
+          u.nama_lengkap AS user_nama,
+          COUNT(dp.id) AS jumlah_item,
+          IFNULL(SUM(dp.quantity), 0) AS total_quantity
+        FROM pembelian p
+        LEFT JOIN users u ON p.users_id = u.id
+        LEFT JOIN detail_pembelian dp ON p.id = dp.pembelian_id
+        ${whereClause}
+        GROUP BY p.id
+        ORDER BY p.tanggal DESC
+        LIMIT ? OFFSET ?
+      `;
+      const [rows] = await pool.query(
+        dataQuery,
+        [...params, limit, offset]
+      );
 
+      // =====================
+      // QUERY TOTAL
+      // =====================
+      const countQuery = `
+        SELECT COUNT(DISTINCT p.id) AS total
+        FROM pembelian p
+        ${whereClause}
+      `;
 
-// =====================
-// QUERY DATA
-// =====================
-const dataQuery = `
-SELECT
-p.id,
-p.invoice,
-p.total,
-p.status,
-DATE_FORMAT(p.tanggal, '%Y-%m-%d') AS tanggal,
-p.users_id,
-u.nama_lengkap AS user_nama,
-COUNT(dp.id) AS jumlah_item,
-IFNULL(SUM(dp.quantity), 0) AS total_quantity
-FROM pembelian p
-LEFT JOIN users u ON p.users_id = u.id
-LEFT JOIN detail_pembelian dp ON p.id = dp.pembelian_id
-${whereClause}
-GROUP BY p.id
-ORDER BY p.tanggal DESC
-LIMIT ? OFFSET ?
-`;
-const [rows] = await pool.query(
-dataQuery,
-[...params, limit, offset]
-);
-// =====================
-// QUERY TOTAL
-// =====================
-const countQuery = `
-SELECT COUNT(DISTINCT p.id) AS total
-FROM pembelian p
-${whereClause}
-`;
+      const totalPembelianQuery = `
+        SELECT SUM(p.total) as total_pembelian 
+        FROM pembelian p 
+        ${whereClause}
+      `;
+        
+      const [countResult] = await pool.query(countQuery, params);
+      const [pembelianResult] = await pool.query(totalPembelianQuery, params);
+      
+      const total = countResult[0]?.total || 0;
+      const totalPages = Math.ceil(total / limit);
+      const total_pembelian = pembelianResult[0]?.total_pembelian || 0;
 
-const totalPembelian = 'SELECT SUM(total) as total_pembelian FROM pembelian WHERE toko_id = ?';
-  
-const [countResult] = await pool.query(countQuery, params);
-const [pembelianResult] = await pool.query(totalPembelian, [tokoId]);
-const total = countResult[0]?.total || 0;
-const totalPages = Math.ceil(total / limit);
-const total_pembelian = pembelianResult[0].total_pembelian || 0;
+      return {
+        data: rows,
+        pagination: {
+          page,
+          limit,
+          total_pembelian,
+          totalPages
+        },
+        total_pembelian
+      };
 
-return {
-data: rows,
-pagination: {
-page,
-limit,
-total_pembelian,
-totalPages
-},
-total_pembelian
-};
-
-} catch (error) {
-console.error('Model getPembelianByToko error:', error);
-throw error;
-}
-},
+    } catch (error) {
+      console.error('Model getPembelianByToko error:', error);
+      throw error;
+    }
+  },
 
 
 
