@@ -297,6 +297,7 @@ async getPembelianByToko(tokoId, filters = {}) {
         SELECT SUM(p.total) as total_pembelian 
         FROM pembelian p 
         ${whereClause}
+        AND p.status != 'BATAL'
       `;
         
       const [countResult] = await pool.query(countQuery, params);

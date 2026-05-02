@@ -55,17 +55,20 @@ const Laporan = {
 
     return rows;
   },
-   async getProdukTerlaris(toko_id, startDate, endDate) {
+  async getProdukTerlaris(toko_id, startDate, endDate) {
     const [rows] = await db.query(`
       SELECT
         p.id AS produk_id,
         p.nama_produk,
-        SUM(ms.quantity) AS total_terjual
+        SUM(CASE 
+          WHEN ms.sumber = 'penjualan' THEN ms.quantity 
+          WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity 
+          ELSE 0 
+        END) AS total_terjual
       FROM mutasi_stok ms
       JOIN produk p ON p.id = ms.produk_id
       WHERE ms.toko_id = ?
-        AND ms.tipe = 'KELUAR'
-        AND ms.sumber = 'penjualan'
+        AND ms.sumber IN ('penjualan', 'cancel_penjualan')
         AND DATE(ms.created_at) BETWEEN ? AND ?
       GROUP BY p.id, p.nama_produk
       ORDER BY total_terjual DESC
