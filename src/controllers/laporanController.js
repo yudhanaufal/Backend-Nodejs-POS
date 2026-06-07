@@ -94,37 +94,67 @@ exports.getLaporanProdukTerlaris = async (req, res) => {
     });
   }
 };
+exports.getInOutProduk = async (req, res) => {
+  try {
+    const { toko_id } = req.params;
+    const { start_date, end_date } = req.query;
 
-exports.getLaporanTransaksi = async (req, res) => {
-    try {
-      const { toko_id } = req.params;
-      const { start, end } = req.query;
-
-      if (!start || !end || !toko_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'Parameter start, end, dan toko_id wajib diisi'
-        });
-      }
-
-      const data = await Laporan.getLaporanTransaksi(start, end, toko_id);
-      const rekap = await Laporan.getRekap(start, end, toko_id);
-
-      res.json({
-        success: true,
-        message: 'Laporan penjualan berhasil diambil',
-        rekap,
-        data
-      });
-
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({
+    if (!start_date || !end_date) {
+      return res.status(400).json({
         success: false,
-        message: 'Terjadi kesalahan server'
+        message: 'Parameter start_date dan end_date diperlukan'
       });
     }
-  };
+
+    const data = await Laporan.getInOutproduk(toko_id, start_date, end_date);
+
+    res.json({
+      success: true,
+      toko_id,
+      start_date,
+      end_date,
+      data
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil laporan in out produk'
+    });
+  }
+};
+
+exports.getLaporanTransaksi = async (req, res) => {
+  try {
+    const { toko_id } = req.params;
+    const { start, end } = req.query;
+
+    if (!start || !end || !toko_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parameter start, end, dan toko_id wajib diisi'
+      });
+    }
+
+    const data = await Laporan.getLaporanTransaksi(start, end, toko_id);
+    const rekap = await Laporan.getRekap(start, end, toko_id);
+
+    res.json({
+      success: true,
+      message: 'Laporan penjualan berhasil diambil',
+      rekap,
+      data
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
 
 exports.getDetailByTransaksi = async (req, res) => {
   try {
@@ -148,62 +178,62 @@ exports.getDetailByTransaksi = async (req, res) => {
 };
 
 exports.getLaporanPelanggan = async (req, res) => {
-    try {
-      const { toko_id } = req.params;
-      const { start, end } = req.query;
+  try {
+    const { toko_id } = req.params;
+    const { start, end } = req.query;
 
-      if (!start || !end || !toko_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'Parameter start, end, dan toko_id wajib diisi'
-        });
-      }
-
-      const data = await Laporan.getPelanggan(start, end, toko_id);
-      const rekap = await Laporan.getRekap(start, end, toko_id);
-
-      res.json({
-        success: true,
-        message: 'Laporan penjualan berhasil diambil',
-        rekap,
-        data
-      });
-
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({
+    if (!start || !end || !toko_id) {
+      return res.status(400).json({
         success: false,
-        message: 'Terjadi kesalahan server'
+        message: 'Parameter start, end, dan toko_id wajib diisi'
       });
     }
-  };
+
+    const data = await Laporan.getPelanggan(start, end, toko_id);
+    const rekap = await Laporan.getRekap(start, end, toko_id);
+
+    res.json({
+      success: true,
+      message: 'Laporan penjualan berhasil diambil',
+      rekap,
+      data
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
 
 exports.detailProdukPelanggan = async (req, res) => {
-    try {
-      const { nama } = req.params;
-      const { start, end, toko_id } = req.query;
+  try {
+    const { nama } = req.params;
+    const { start, end, toko_id } = req.query;
 
-      const produk = await Laporan.getProdukByPelanggan(
-        nama,
-        start,
-        end,
-        toko_id
-      );
+    const produk = await Laporan.getProdukByPelanggan(
+      nama,
+      start,
+      end,
+      toko_id
+    );
 
-      res.json({
-        success: true,
-        pelanggan: nama,
-        produk
-      });
+    res.json({
+      success: true,
+      pelanggan: nama,
+      produk
+    });
 
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({
-        success: false,
-        message: 'Gagal mengambil detail produk pelanggan'
-      });
-    }
-  };
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil detail produk pelanggan'
+    });
+  }
+};
 
 // EXPORT EXCEL
 exports.exportNilaiStokExcel = async (req, res) => {
@@ -550,6 +580,81 @@ exports.getLaporanOperasional = async (req, res) => {
     });
   }
 };
+
+exports.getLaporanToko = async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parameter start_date dan end_date wajib cuk '
+      });
+    }
+
+    const data = await Laporan.getlaporantoko(start_date, end_date);
+
+    const rekap = {
+      total_omset: data.reduce((sum, item) => sum + Number(item.total_omset), 0),
+      total_laba: data.reduce((sum, item) => sum + Number(item.total_laba), 0),
+      jumlah_item: data.length
+    };
+
+    res.json({
+      success: true,
+      message: 'Laporan toko berhasil diambil',
+      rekap,
+      data
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
+
+exports.getDetailLaporanToko = async (req, res) => {
+  try {
+    const { toko_id } = req.params;
+    const { start_date, end_date } = req.query;
+
+    if (!start_date || !end_date || !toko_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parameter start_date, end_date, dan toko_id wajib diisi'
+      });
+    }
+
+    const data = await Laporan.getdetaillaporantoko(start_date, end_date, toko_id);
+
+    const rekap = {
+      total_omset: data.reduce((sum, item) => sum + Number(item.total_omset), 0),
+      total_laba: data.reduce((sum, item) => sum + Number(item.total_laba), 0),
+      total_diskon: data.reduce((sum, item) => sum + Number(item.total_diskon), 0),
+      total_transaksi: data.reduce((sum, item) => sum + Number(item.total_transaksi), 0),
+      jumlah_hari: data.length
+    };
+
+    res.json({
+      success: true,
+      message: 'Detail laporan toko per hari berhasil diambil',
+      rekap,
+      data
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
+
+
 
 exports.exportOperasionalExcel = async (req, res) => {
   try {

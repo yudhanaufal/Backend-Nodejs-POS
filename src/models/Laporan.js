@@ -27,7 +27,7 @@ const Laporan = {
     return rows;
   },
 
- async getNilaiStokByTanggal(toko_id, tanggal) {
+  async getNilaiStokByTanggal(toko_id, tanggal) {
     const [rows] = await db.query(`
       SELECT
         p.id AS produk_id,
@@ -57,26 +57,100 @@ const Laporan = {
   },
   async getProdukTerlaris(toko_id, startDate, endDate) {
     const [rows] = await db.query(`
-      SELECT
+       SELECT
         p.id AS produk_id,
         p.nama_produk,
+        (
+          SELECT ms_start.stok_sebelum
+          FROM mutasi_stok ms_start
+          WHERE ms_start.toko_id = ?
+            AND ms_start.produk_id = p.id
+            AND DATE(ms_start.created_at) BETWEEN ? AND ?
+          ORDER BY ms_start.created_at ASC, ms_start.id ASC
+          LIMIT 1
+        ) AS stok_awal,
+        (
+          SELECT ms_end.stok_sesudah
+          FROM mutasi_stok ms_end
+          WHERE ms_end.toko_id = ?
+            AND ms_end.produk_id = p.id
+            AND DATE(ms_end.created_at) BETWEEN ? AND ?
+          ORDER BY ms_end.created_at DESC, ms_end.id DESC
+          LIMIT 1
+        ) AS stok_akhir,
         SUM(CASE 
-          WHEN ms.sumber = 'penjualan' THEN ms.quantity 
-          WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity 
-          ELSE 0 
-        END) AS total_terjual
+        WHEN ms.sumber = 'pembelian' THEN ms.quantity
+        WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
+        ELSE 0
+        END) AS total_pembelian,
+        SUM(CASE
+          WHEN ms.sumber = 'penjualan' THEN ms.quantity
+          WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity
+          ELSE 0
+        END) AS total_penjualan
       FROM mutasi_stok ms
       JOIN produk p ON p.id = ms.produk_id
       WHERE ms.toko_id = ?
-        AND ms.sumber IN ('penjualan', 'cancel_penjualan')
-        AND DATE(ms.created_at) BETWEEN ? AND ?
+      AND ms.sumber IN ('pembelian','cancel_pembelian','penjualan','cancel_penjualan')
+      AND DATE(ms.created_at) BETWEEN ? AND ?
       GROUP BY p.id, p.nama_produk
-      ORDER BY total_terjual DESC
-    `, [toko_id, startDate, endDate]);
+      ORDER BY p.nama_produk ASC
+    `, [
+      toko_id, startDate, endDate,
+      toko_id, startDate, endDate,
+      toko_id, startDate, endDate
+    ]);
 
     return rows;
   },
-    async getLaporanTransaksi(startDate, endDate, toko_id) {
+  async getInOutproduk(toko_id, startdate, endDate) {
+    const [rows] = await db.query(`
+        SELECT
+        p.id AS produk_id,
+        p.nama_produk,
+        (
+          SELECT ms_start.stok_sebelum
+          FROM mutasi_stok ms_start
+          WHERE ms_start.toko_id = ?
+            AND ms_start.produk_id = p.id
+            AND DATE(ms_start.created_at) BETWEEN ? AND ?
+          ORDER BY ms_start.created_at ASC, ms_start.id ASC
+          LIMIT 1
+        ) AS stok_awal,
+        (
+          SELECT ms_end.stok_sesudah
+          FROM mutasi_stok ms_end
+          WHERE ms_end.toko_id = ?
+            AND ms_end.produk_id = p.id
+            AND DATE(ms_end.created_at) BETWEEN ? AND ?
+          ORDER BY ms_end.created_at DESC, ms_end.id DESC
+          LIMIT 1
+        ) AS stok_akhir,
+        SUM(CASE 
+        WHEN ms.sumber = 'pembelian' THEN ms.quantity
+        WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
+        ELSE 0
+        END) AS total_pembelian,
+        SUM(CASE
+          WHEN ms.sumber = 'penjualan' THEN ms.quantity
+          WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity
+          ELSE 0
+        END) AS total_penjualan
+      FROM mutasi_stok ms
+      JOIN produk p ON p.id = ms.produk_id
+      WHERE ms.toko_id = ?
+      AND ms.sumber IN ('pembelian','cancel_pembelian','penjualan','cancel_penjualan')
+      AND DATE(ms.created_at) BETWEEN ? AND ?
+      GROUP BY p.id, p.nama_produk
+      ORDER BY p.nama_produk ASC
+    `, [
+      toko_id, startdate, endDate,
+      toko_id, startdate, endDate,
+      toko_id, startdate, endDate
+    ]);
+    return rows;
+  },
+  async getLaporanTransaksi(startDate, endDate, toko_id) {
     const query = `
       SELECT 
         t.id,
@@ -92,7 +166,7 @@ const Laporan = {
         m.nama_member
       FROM transaksi t
       LEFT JOIN member m ON t.member_id = m.id
-      WHERE t.tanggal BETWEEN ? AND ?
+      WHERE DATE(t.tanggal) BETWEEN ? AND ?
       AND t.toko_id = ?
       ORDER BY t.tanggal DESC
     `;
@@ -136,7 +210,7 @@ const Laporan = {
         p.total AS total_pembelian,
         p.tanggal
       FROM pembelian p
-      WHERE p.tanggal BETWEEN ? AND ?
+      WHERE DATE(p.tanggal) BETWEEN ? AND ?
         AND p.toko_id = ?
       ORDER BY p.tanggal DESC
     `;
@@ -148,7 +222,7 @@ const Laporan = {
   // =============================
   // REKAP TOTAL
   // =============================
- async getRekap(startDate, endDate, toko_id) {
+  async getRekap(startDate, endDate, toko_id) {
     const query = `
       SELECT
         SUM(total) AS total_omset,
@@ -156,7 +230,7 @@ const Laporan = {
         SUM(total_diskon) AS total_diskon,
         COUNT(id) AS total_transaksi
       FROM transaksi
-      WHERE tanggal BETWEEN ? AND ?
+      WHERE DATE(tanggal) BETWEEN ? AND ?
       AND toko_id = ?
       AND status = 'Lunas'
     `;
@@ -169,7 +243,7 @@ const Laporan = {
 
     return rows[0];
   },
-async getPelanggan(start, end, toko_id) {
+  async getPelanggan(start, end, toko_id) {
     const query = `
       SELECT 
         COALESCE(m.nama_member, 'Non-Member') AS pelanggan,
@@ -178,7 +252,7 @@ async getPelanggan(start, end, toko_id) {
         SUM(t.total_laba) AS total_laba
       FROM transaksi t
       LEFT JOIN member m ON t.member_id = m.id
-      WHERE t.tanggal BETWEEN ? AND ?
+      WHERE DATE(t.tanggal) BETWEEN ? AND ?
         AND t.toko_id = ?
         AND t.status = 'Lunas'
       GROUP BY pelanggan
@@ -201,7 +275,7 @@ async getPelanggan(start, end, toko_id) {
       FROM transaksi t
       JOIN detail_transaksi dt ON t.id = dt.transaksi_id
       LEFT JOIN member m ON t.member_id = m.id
-      WHERE t.tanggal BETWEEN ? AND ?
+      WHERE DATE(t.tanggal) BETWEEN ? AND ?
         AND t.toko_id = ?
         AND t.status = 'Lunas'
         AND COALESCE(m.nama_member, 'Non-Member') = ?
@@ -234,7 +308,7 @@ async getPelanggan(start, end, toko_id) {
         u.nama_lengkap AS nama_kasir
       FROM setoran s
       LEFT JOIN users u ON s.users_id = u.id
-      WHERE s.tanggal BETWEEN ? AND ?
+      WHERE DATE(s.tanggal) BETWEEN ? AND ?
         AND s.toko_id = ?
       ORDER BY s.tanggal DESC
     `;
@@ -261,14 +335,54 @@ async getPelanggan(start, end, toko_id) {
       FROM operasional o
       JOIN detail_operasional do ON o.id = do.operasional_id
       LEFT JOIN users u ON o.users_id = u.id
-      WHERE o.tanggal BETWEEN ? AND ?
+      WHERE DATE(o.tanggal) BETWEEN ? AND ?
         AND o.toko_id = ?
       ORDER BY o.tanggal DESC, o.id DESC
     `;
 
     const [rows] = await db.query(query, [start, end, toko_id]);
     return rows;
-  }
+  },
+
+  async getlaporantoko(start_date, end_date) {
+    const query = `
+      SELECT
+        tk.nama_toko,
+        tk.id AS toko_id,
+        SUM(t.total) AS total_omset,
+        SUM(t.total_laba) AS total_laba,
+        SUM(t.total_diskon) AS total_diskon,
+        COUNT(t.id) AS total_transaksi
+      FROM toko tk
+      LEFT JOIN transaksi t ON t.toko_id = tk.id
+        AND DATE(t.tanggal) BETWEEN ? AND ?
+        AND t.status = 'Lunas'
+      GROUP BY tk.id, tk.nama_toko
+      ORDER BY tk.nama_toko ASC
+    `;
+    const [rows] = await db.query(query, [start_date, end_date]);
+    return rows;
+  },
+  async getdetaillaporantoko(start_date, end_date, tokoid) {
+    const query = `
+      SELECT
+        DATE(t.tanggal) AS tanggal,
+        tk.nama_toko,
+        SUM(t.total) AS total_omset,
+        SUM(t.total_laba) AS total_laba,
+        SUM(t.total_diskon) AS total_diskon,
+        COUNT(t.id) AS total_transaksi
+      FROM transaksi t
+      JOIN toko tk ON t.toko_id = tk.id
+      WHERE DATE(t.tanggal) BETWEEN ? AND ?
+        AND t.toko_id = ?
+        AND t.status = 'Lunas'
+      GROUP BY DATE(t.tanggal), tk.id, tk.nama_toko
+      ORDER BY DATE(t.tanggal) ASC
+    `;
+    const [rows] = await db.query(query, [start_date, end_date, tokoid]);
+    return rows;
+  },
 };
 
 module.exports = Laporan;
