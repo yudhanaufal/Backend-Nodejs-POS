@@ -7,7 +7,7 @@ const path = require('path');
 // Setup multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'public/uploads/absensi'); // Pastikan folder public/uploads/absensi ada
+    cb(null, './uploads/absensi');
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -19,5 +19,6 @@ const upload = multer({ storage: storage });
 // Routes
 router.post('/', upload.single('foto'), absensiController.createAbsensi);
 router.get('/', absensiController.getAbsensi);
+router.get('/:user_id', absensiController.getAbsensiByUser);
 
 module.exports = router;
