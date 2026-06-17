@@ -57,48 +57,52 @@ const Laporan = {
   },
   async getProdukTerlaris(toko_id, startDate, endDate) {
     const [rows] = await db.query(`
-       SELECT
+      SELECT
         p.id AS produk_id,
         p.nama_produk,
-        (
-          SELECT ms_start.stok_sebelum
-          FROM mutasi_stok ms_start
-          WHERE ms_start.toko_id = ?
-            AND ms_start.produk_id = p.id
-            AND DATE(ms_start.created_at) BETWEEN ? AND ?
-          ORDER BY ms_start.created_at ASC, ms_start.id ASC
-          LIMIT 1
+        COALESCE(
+          (
+            SELECT ms_start.stok_sebelum
+            FROM mutasi_stok ms_start
+            WHERE ms_start.toko_id = ?
+              AND ms_start.produk_id = p.id
+              AND DATE(ms_start.created_at) BETWEEN ? AND ?
+            ORDER BY ms_start.created_at ASC, ms_start.id ASC
+            LIMIT 1
+          ), 0
         ) AS stok_awal,
-        (
-          SELECT ms_end.stok_sesudah
-          FROM mutasi_stok ms_end
-          WHERE ms_end.toko_id = ?
-            AND ms_end.produk_id = p.id
-            AND DATE(ms_end.created_at) BETWEEN ? AND ?
-          ORDER BY ms_end.created_at DESC, ms_end.id DESC
-          LIMIT 1
+        COALESCE(
+          (
+            SELECT ms_end.stok_sesudah
+            FROM mutasi_stok ms_end
+            WHERE ms_end.toko_id = ?
+              AND ms_end.produk_id = p.id
+              AND DATE(ms_end.created_at) BETWEEN ? AND ?
+            ORDER BY ms_end.created_at DESC, ms_end.id DESC
+            LIMIT 1
+          ), 0
         ) AS stok_akhir,
-        SUM(CASE 
-        WHEN ms.sumber = 'pembelian' THEN ms.quantity
-        WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
-        ELSE 0
-        END) AS total_pembelian,
-        SUM(CASE
+        COALESCE(SUM(CASE 
+          WHEN ms.sumber = 'pembelian' THEN ms.quantity
+          WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
+          ELSE 0
+        END), 0) AS total_pembelian,
+        COALESCE(SUM(CASE
           WHEN ms.sumber = 'penjualan' THEN ms.quantity
           WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity
           ELSE 0
-        END) AS total_penjualan
-      FROM mutasi_stok ms
-      JOIN produk p ON p.id = ms.produk_id
-      WHERE ms.toko_id = ?
-      AND ms.sumber IN ('pembelian','cancel_pembelian','penjualan','cancel_penjualan')
-      AND DATE(ms.created_at) BETWEEN ? AND ?
+        END), 0) AS total_penjualan
+      FROM produk p
+      LEFT JOIN mutasi_stok ms ON p.id = ms.produk_id 
+        AND ms.toko_id = ?
+        AND ms.sumber IN ('pembelian','cancel_pembelian','penjualan','cancel_penjualan')
+        AND DATE(ms.created_at) BETWEEN ? AND ?
       GROUP BY p.id, p.nama_produk
-      ORDER BY p.nama_produk ASC
+      ORDER BY total_penjualan DESC, p.nama_produk ASC
     `, [
-      toko_id, startDate, endDate,
-      toko_id, startDate, endDate,
-      toko_id, startDate, endDate
+      toko_id, startDate, endDate, // Untuk subquery stok_awal
+      toko_id, startDate, endDate, // Untuk subquery stok_akhir
+      toko_id, startDate, endDate  // Untuk LEFT JOIN mutasi_stok utama
     ]);
 
     return rows;
@@ -106,49 +110,78 @@ const Laporan = {
   async getInOutproduk(toko_id, startdate, endDate) {
     const [rows] = await db.query(`
         SELECT
-        p.id AS produk_id,
-        p.nama_produk,
-        (
-          SELECT ms_start.stok_sebelum
-          FROM mutasi_stok ms_start
-          WHERE ms_start.toko_id = ?
-            AND ms_start.produk_id = p.id
-            AND DATE(ms_start.created_at) BETWEEN ? AND ?
-          ORDER BY ms_start.created_at ASC, ms_start.id ASC
-          LIMIT 1
-        ) AS stok_awal,
-        (
-          SELECT ms_end.stok_sesudah
-          FROM mutasi_stok ms_end
-          WHERE ms_end.toko_id = ?
-            AND ms_end.produk_id = p.id
-            AND DATE(ms_end.created_at) BETWEEN ? AND ?
-          ORDER BY ms_end.created_at DESC, ms_end.id DESC
-          LIMIT 1
-        ) AS stok_akhir,
-        SUM(CASE 
-        WHEN ms.sumber = 'pembelian' THEN ms.quantity
-        WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
-        ELSE 0
-        END) AS total_pembelian,
-        SUM(CASE
-          WHEN ms.sumber = 'penjualan' THEN ms.quantity
-          WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity
-          ELSE 0
-        END) AS total_penjualan
-      FROM mutasi_stok ms
-      JOIN produk p ON p.id = ms.produk_id
-      WHERE ms.toko_id = ?
-      AND ms.sumber IN ('pembelian','cancel_pembelian','penjualan','cancel_penjualan')
-      AND DATE(ms.created_at) BETWEEN ? AND ?
-      GROUP BY p.id, p.nama_produk
-      ORDER BY p.nama_produk ASC
-    `, [
-      toko_id, startdate, endDate,
-      toko_id, startdate, endDate,
-      toko_id, startdate, endDate
-    ]);
-    return rows;
+          DATE_FORMAT(ms.created_at, '%Y-%m-%d') AS tanggal,
+          p.id AS produk_id,
+          p.nama_produk,
+          SUM(CASE 
+            WHEN ms.sumber = 'pembelian' THEN ms.quantity
+            WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
+            ELSE 0
+          END) AS kuantitas_pembelian,
+          SUM(CASE
+            WHEN ms.sumber = 'penjualan' THEN ms.quantity
+            WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity
+            ELSE 0
+          END) AS kuantitas_penjualan
+        FROM mutasi_stok ms
+        JOIN produk p ON p.id = ms.produk_id
+        WHERE ms.toko_id = ?
+          AND ms.sumber IN ('pembelian', 'cancel_pembelian', 'penjualan', 'cancel_penjualan')
+          AND DATE(ms.created_at) BETWEEN ? AND ?
+        GROUP BY p.id, p.nama_produk, DATE_FORMAT(ms.created_at, '%Y-%m-%d')
+        ORDER BY p.nama_produk ASC, DATE_FORMAT(ms.created_at, '%Y-%m-%d') ASC
+    `, [toko_id, startdate, endDate]);
+
+    // 1. GENERATE LIST TANGGAL LENGKAP BERDASARKAN INPUT
+    const listTanggal = [];
+    let dCurrent = new Date(startdate);
+    const dEnd = new Date(endDate);
+
+    while (dCurrent <= dEnd) {
+      listTanggal.push(dCurrent.toISOString().split('T')[0]);
+      dCurrent.setDate(dCurrent.getDate() + 1);
+    }
+
+    // 2. KELOMPOKKAN DATA DARI DATABASE SEPERTI SEBELUMNYA
+    const groupedData = rows.reduce((acc, current) => {
+      let produk = acc.find(item => item.produk_id === current.produk_id);
+      if (!produk) {
+        produk = {
+          produk_id: current.produk_id,
+          nama_produk: current.nama_produk,
+          riwayat: []
+        };
+        acc.push(produk);
+      }
+      produk.riwayat.push({
+        tanggal: current.tanggal,
+        kuantitas_pembelian: Number(current.kuantitas_pembelian),
+        kuantitas_penjualan: Number(current.kuantitas_penjualan)
+      });
+      return acc;
+    }, []);
+
+    // 3. SELIPKAN TANGGAL KOSONG DENGAN NILAI 0
+    const finalData = groupedData.map(produk => {
+      const riwayatLengkap = listTanggal.map(tgl => {
+        // Cari apakah di tanggal ini database punya datanya
+        const dataAda = produk.riwayat.find(r => r.tanggal === tgl);
+
+        // Jika ada, pakai data asli. Jika tidak ada, buat objek baru bernilai 0
+        return dataAda || {
+          tanggal: tgl,
+          kuantitas_pembelian: 0,
+          kuantitas_penjualan: 0
+        };
+      });
+
+      return {
+        ...produk,
+        riwayat: riwayatLengkap
+      };
+    });
+
+    return finalData;
   },
   async getLaporanTransaksi(startDate, endDate, toko_id) {
     const query = `
@@ -256,7 +289,7 @@ const Laporan = {
         AND t.toko_id = ?
         AND t.status = 'Lunas'
       GROUP BY pelanggan
-      ORDER BY total_omset DESC
+      ORDER BY total_transaksi DESC
     `;
 
     const [rows] = await db.query(query, [start, end, toko_id]);

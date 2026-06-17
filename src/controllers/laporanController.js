@@ -96,32 +96,45 @@ exports.getLaporanProdukTerlaris = async (req, res) => {
 };
 exports.getInOutProduk = async (req, res) => {
   try {
-    const { toko_id } = req.params;
     const { start_date, end_date } = req.query;
+    const toko_id = req.params.toko_id;
 
+    // 1. Validasi apakah tanggalnya diisi
     if (!start_date || !end_date) {
       return res.status(400).json({
-        success: false,
-        message: 'Parameter start_date dan end_date diperlukan'
+        status: false,
+        message: "Format salah! start_date dan end_date harus diisi."
       });
     }
 
-    const data = await Laporan.getInOutproduk(toko_id, start_date, end_date);
+    // 2. Hitung selisih hari antara start_date dan end_date
+    const date1 = new Date(start_date);
+    const date2 = new Date(end_date);
 
-    res.json({
-      success: true,
-      toko_id,
-      start_date,
-      end_date,
-      data
+    // Rumus mencari selisih hari
+    const selisihMiliDetik = Math.abs(date2 - date1);
+    const selisihHari = Math.ceil(selisihMiliDetik / (1000 * 60 * 60 * 24));
+
+    // 3. VALIDASI MAKSIMAL 1 MINGGU (7 HARI)
+    if (selisihHari > 7) {
+      return res.status(400).json({
+        status: false,
+        message: "Rentang laporan maksimal adalah 1 minggu (7 hari)!"
+      });
+    }
+
+    // 4. Jika lolos validasi, baru panggil fungsi Model
+    const dataLaporan = await Laporan.getInOutproduk(toko_id, start_date, end_date);
+
+    return res.status(200).json({
+      status: true,
+      message: "Berhasil mengambil laporan in/out produk",
+      data: dataLaporan
     });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Gagal mengambil laporan in out produk'
-    });
+    return res.status(500).json({ status: false, message: "Terjadi kesalahan pada server" });
   }
 };
 
