@@ -93,16 +93,17 @@ const Laporan = {
           ELSE 0
         END), 0) AS total_penjualan
       FROM produk p
-      LEFT JOIN mutasi_stok ms ON p.id = ms.produk_id 
+      -- DIUBAH MENJADI INNER JOIN agar produk dari toko/mutasi lain tidak ikut terbawa
+      INNER JOIN mutasi_stok ms ON p.id = ms.produk_id 
         AND ms.toko_id = ?
         AND ms.sumber IN ('pembelian','cancel_pembelian','penjualan','cancel_penjualan')
         AND DATE(ms.created_at) BETWEEN ? AND ?
       GROUP BY p.id, p.nama_produk
       ORDER BY total_penjualan DESC, p.nama_produk ASC
     `, [
-      toko_id, startDate, endDate, // Untuk subquery stok_awal
-      toko_id, startDate, endDate, // Untuk subquery stok_akhir
-      toko_id, startDate, endDate  // Untuk LEFT JOIN mutasi_stok utama
+      toko_id, startDate, endDate, // Subquery stok_awal
+      toko_id, startDate, endDate, // Subquery stok_akhir
+      toko_id, startDate, endDate  // INNER JOIN utama
     ]);
 
     return rows;
