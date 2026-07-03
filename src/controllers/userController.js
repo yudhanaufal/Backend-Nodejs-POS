@@ -3,14 +3,14 @@ const Toko = require('../models/Toko');
 
 exports.createUser = async (req, res) => {
   try {
-    const { 
-      username, 
-      password, 
-      nama_lengkap, 
-      email, 
-      telepon, 
-      role, 
-      toko_id 
+    const {
+      username,
+      password,
+      nama_lengkap,
+      email,
+      telepon,
+      role,
+      toko_id
     } = req.body;
 
     // Validasi input wajib
@@ -101,14 +101,14 @@ exports.createUser = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 50;
     const toko_id = req.query.toko_id; // Filter by toko_id
-    
+
     const filters = {};
     if (toko_id) filters.toko_id = toko_id;
-    
+
     const result = await User.getAll(page, limit, filters);
-    
+
     res.json({
       success: true,
       message: "Data user berhasil diambil",
@@ -127,16 +127,16 @@ exports.getAllUsers = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const user = await User.getById(id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User tidak ditemukan"
       });
     }
-    
+
     res.json({
       success: true,
       message: "User berhasil ditemukan",
@@ -155,8 +155,8 @@ exports.getUsersByToko = async (req, res) => {
   try {
     const { toko_id } = req.params;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    
+    const limit = parseInt(req.query.limit) || 50;
+
     // Validasi toko_id
     if (!toko_id || isNaN(toko_id)) {
       return res.status(400).json({
@@ -164,7 +164,7 @@ exports.getUsersByToko = async (req, res) => {
         message: "ID toko tidak valid"
       });
     }
-    
+
     // Cek apakah toko exists
     const tokoExists = await Toko.exists(toko_id);
     if (!tokoExists) {
@@ -173,9 +173,9 @@ exports.getUsersByToko = async (req, res) => {
         message: "Toko tidak ditemukan"
       });
     }
-    
+
     const result = await User.getByTokoId(parseInt(toko_id), page, limit);
-    
+
     res.json({
       success: true,
       message: `Data user toko ${toko_id} berhasil diambil`,
@@ -194,15 +194,15 @@ exports.getUsersByToko = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      nama_lengkap, 
-      email, 
-      telepon, 
-      role, 
+    const {
+      nama_lengkap,
+      email,
+      telepon,
+      role,
       toko_id,
-      is_active 
+      is_active
     } = req.body;
-    
+
     // Cek apakah user exists
     const userExists = await User.exists(id);
     if (!userExists) {
@@ -211,7 +211,7 @@ exports.updateUser = async (req, res) => {
         message: "User tidak ditemukan"
       });
     }
-    
+
     // Validasi email (jika diupdate)
     if (email) {
       const emailExists = await User.emailExists(email, id);
@@ -222,7 +222,7 @@ exports.updateUser = async (req, res) => {
         });
       }
     }
-    
+
     // Validasi toko_id (jika ada)
     if (toko_id) {
       const tokoExists = await Toko.exists(toko_id);
@@ -233,7 +233,7 @@ exports.updateUser = async (req, res) => {
         });
       }
     }
-    
+
     // Validasi role
     if (role) {
       const validRoles = ['admin', 'kasir', 'gudang', 'owner'];
@@ -244,7 +244,7 @@ exports.updateUser = async (req, res) => {
         });
       }
     }
-    
+
     // Update user
     const updated = await User.update(id, {
       nama_lengkap,
@@ -254,16 +254,16 @@ exports.updateUser = async (req, res) => {
       toko_id: toko_id || null,
       is_active: is_active !== undefined ? is_active : true
     });
-    
+
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: "Gagal mengupdate user"
       });
     }
-    
+
     const updatedUser = await User.getById(id);
-    
+
     res.json({
       success: true,
       message: "User berhasil diupdate",
@@ -282,21 +282,21 @@ exports.updatePassword = async (req, res) => {
   try {
     const { id } = req.params;
     const { current_password, new_password } = req.body;
-    
+
     if (!current_password || !new_password) {
       return res.status(400).json({
         success: false,
         message: "Password lama dan baru wajib diisi"
       });
     }
-    
+
     if (new_password.length < 6) {
       return res.status(400).json({
         success: false,
         message: "Password baru minimal 6 karakter"
       });
     }
-    
+
     // Get user with password
     const user = await User.getByUsername(req.user?.username || '');
     if (!user) {
@@ -305,7 +305,7 @@ exports.updatePassword = async (req, res) => {
         message: "User tidak ditemukan"
       });
     }
-    
+
     // Verify current password
     const isValid = await User.verifyPassword(current_password, user.password);
     if (!isValid) {
@@ -314,17 +314,17 @@ exports.updatePassword = async (req, res) => {
         message: "Password lama salah"
       });
     }
-    
+
     // Update password
     const updated = await User.updatePassword(id, new_password);
-    
+
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: "Gagal mengupdate password"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Password berhasil diupdate"
@@ -341,7 +341,7 @@ exports.updatePassword = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Cek apakah user exists
     const userExists = await User.exists(id);
     if (!userExists) {
@@ -350,7 +350,7 @@ exports.deleteUser = async (req, res) => {
         message: "User tidak ditemukan"
       });
     }
-    
+
     // Tidak boleh delete diri sendiri (jika ada auth)
     if (req.user && req.user.id === parseInt(id)) {
       return res.status(403).json({
@@ -358,16 +358,16 @@ exports.deleteUser = async (req, res) => {
         message: "Tidak dapat menghapus akun sendiri"
       });
     }
-    
+
     const deleted = await User.delete(id);
-    
+
     if (!deleted) {
       return res.status(400).json({
         success: false,
         message: "Gagal menghapus user"
       });
     }
-    
+
     res.json({
       success: true,
       message: "User berhasil dihapus"
