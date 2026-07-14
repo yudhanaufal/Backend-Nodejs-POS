@@ -115,11 +115,11 @@ exports.getInOutProduk = async (req, res) => {
     const selisihMiliDetik = Math.abs(date2 - date1);
     const selisihHari = Math.ceil(selisihMiliDetik / (1000 * 60 * 60 * 24));
 
-    // 3. VALIDASI MAKSIMAL 1 MINGGU (7 HARI)
-    if (selisihHari > 7) {
+    // 3. VALIDASI MAKSIMAL 1 BULAN
+    if (selisihHari > 30) {
       return res.status(400).json({
         status: false,
-        message: "Rentang laporan maksimal adalah 1 minggu (7 hari)!"
+        message: "Rentang laporan maksimal adalah 1 bulan!"
       });
     }
 
@@ -601,23 +601,57 @@ exports.getLaporanToko = async (req, res) => {
     if (!start_date || !end_date) {
       return res.status(400).json({
         success: false,
-        message: 'Parameter start_date dan end_date wajib cuk '
+        message: 'Parameter start_date dan end_date wajib diisi'
       });
     }
 
-    const data = await Laporan.getlaporantoko(start_date, end_date);
+    const rawData = await Laporan.getlaporantoko(start_date, end_date);
+
+    // 1. Buat fungsi formatter Rupiah
+    const formatterRupiah = new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    });
+
+    // 2. Hitung total rekap (menggunakan rawData yang masih berupa angka murni)
+    const totalOmsetAngka = rawData.reduce((sum, item) => sum + Number(item.total_omset), 0);
+    const totalLabaKotorAngka = rawData.reduce((sum, item) => sum + Number(item.total_laba), 0);
+    const totalDiskonAngka = rawData.reduce((sum, item) => sum + Number(item.total_diskon), 0);
+    const totalOperasionalAngka = rawData.reduce((sum, item) => sum + Number(item.total_operasional), 0);
+    const totalSetoranAngka = rawData.reduce((sum, item) => sum + Number(item.total_setoran), 0);
+    const totalLabaBersihAngka = rawData.reduce((sum, item) => sum + Number(item.total_laba_bersih), 0);
+    const totalTransaksi = rawData.reduce((sum, item) => sum + Number(item.total_transaksi), 0);
 
     const rekap = {
-      total_omset: data.reduce((sum, item) => sum + Number(item.total_omset), 0),
-      total_laba: data.reduce((sum, item) => sum + Number(item.total_laba), 0),
-      jumlah_item: data.length
+      total_omset: formatterRupiah.format(totalOmsetAngka),
+      total_laba_kotor: formatterRupiah.format(totalLabaKotorAngka),
+      total_diskon: formatterRupiah.format(totalDiskonAngka),
+      total_operasional: formatterRupiah.format(totalOperasionalAngka),
+      total_setoran: formatterRupiah.format(totalSetoranAngka),
+      total_laba_bersih: formatterRupiah.format(totalLabaBersihAngka),
+      total_transaksi: totalTransaksi,
+      jumlah_item: rawData.length
     };
+
+    // 3. Format isi variabel `data` satu per satu menggunakan .map()
+    const dataFormatted = rawData.map(item => ({
+      nama_toko: item.nama_toko,
+      toko_id: item.toko_id,
+      total_transaksi: item.total_transaksi,
+      total_omset: formatterRupiah.format(Number(item.total_omset || 0)),
+      total_laba_kotor: formatterRupiah.format(Number(item.total_laba || 0)),
+      total_diskon: formatterRupiah.format(Number(item.total_diskon || 0)),
+      total_operasional: formatterRupiah.format(Number(item.total_operasional || 0)),
+      total_setoran: formatterRupiah.format(Number(item.total_setoran || 0)),
+      total_laba_bersih: formatterRupiah.format(Number(item.total_laba_bersih || 0))
+    }));
 
     res.json({
       success: true,
       message: 'Laporan toko berhasil diambil',
       rekap,
-      data
+      data: dataFormatted // Kirim data yang sudah rapi berformat Rupiah
     });
 
   } catch (error) {
@@ -645,8 +679,11 @@ exports.getDetailLaporanToko = async (req, res) => {
 
     const rekap = {
       total_omset: data.reduce((sum, item) => sum + Number(item.total_omset), 0),
-      total_laba: data.reduce((sum, item) => sum + Number(item.total_laba), 0),
+      total_laba_kotor: data.reduce((sum, item) => sum + Number(item.total_laba), 0),
+      total_laba_bersih: data.reduce((sum, item) => sum + Number(item.total_laba_bersih), 0),
       total_diskon: data.reduce((sum, item) => sum + Number(item.total_diskon), 0),
+      total_operasional: data.reduce((sum, item) => sum + Number(item.total_operasional), 0),
+      total_setoran: data.reduce((sum, item) => sum + Number(item.total_setoran), 0),
       total_transaksi: data.reduce((sum, item) => sum + Number(item.total_transaksi), 0),
       jumlah_hari: data.length
     };
@@ -716,5 +753,20 @@ exports.exportOperasionalExcel = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Gagal export excel' });
+  }
+};
+exports.getNotabyPelanggan = async (req, res) => {
+  try {
+    const { member_id } = req.params;
+    const { start_date, end_date } = req.query;
+    const data = await Laporan.getNotabyPelanggan(start_date, end_date, member_id);
+    res.json({
+      success: true,
+      message: 'Laporan nota by pelanggan berhasil diambil',
+      data
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil laporan nota by pelanggan' });
   }
 };

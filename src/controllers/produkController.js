@@ -16,16 +16,16 @@ exports.createProduk = async (req, res) => {
           message: err.message
         });
       }
-      
-      const { nama_produk, barcode,harga_beli, harga_jual, stok, toko_id } = req.body;
+
+      const { nama_produk, barcode, harga_beli, harga_jual, stok, toko_id } = req.body;
 
       // Validasi input wajib
-      if (!nama_produk || !harga_beli ||!barcode || !harga_jual || !toko_id) {
+      if (!nama_produk || !harga_beli || !barcode || !harga_jual || !toko_id) {
         // Hapus file jika validasi gagal
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(400).json({
           success: false,
           message: "Nama produk, harga beli, harga jual, dan toko wajib diisi"
@@ -37,7 +37,7 @@ exports.createProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(400).json({
           success: false,
           message: "Harga beli dan harga jual harus berupa angka"
@@ -48,7 +48,7 @@ exports.createProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(400).json({
           success: false,
           message: "Harga harus lebih dari 0"
@@ -60,7 +60,7 @@ exports.createProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(400).json({
           success: false,
           message: "Stok harus angka dan tidak boleh negatif"
@@ -73,7 +73,7 @@ exports.createProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(404).json({
           success: false,
           message: "Toko tidak ditemukan"
@@ -106,7 +106,7 @@ exports.createProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         // Handle uniqueness error or other business logic errors
         if (error.message.includes('Nama produk sudah ada') || error.message.includes('Barcode sudah digunakan')) {
           return res.status(400).json({
@@ -114,7 +114,7 @@ exports.createProduk = async (req, res) => {
             message: error.message
           });
         }
-        
+
         throw error;
       }
     });
@@ -138,13 +138,13 @@ exports.getAllProduk = async (req, res) => {
     const limit = parseInt(req.query.limit) || 500;
     const toko_id = req.query.toko_id;
     const search = req.query.search;
-    
+
     const filters = {};
     if (toko_id) filters.toko_id = toko_id;
     if (search) filters.search = search;
-    
+
     const result = await Produk.getAll(page, limit, filters);
-    
+
     res.json({
       success: true,
       message: "Data produk berhasil diambil",
@@ -168,7 +168,7 @@ exports.getAllProduk = async (req, res) => {
 exports.getProdukById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Validasi ID
     if (!id || isNaN(id)) {
       return res.status(400).json({
@@ -176,16 +176,16 @@ exports.getProdukById = async (req, res) => {
         message: "ID produk tidak valid"
       });
     }
-    
+
     const produk = await Produk.getById(id);
-    
+
     if (!produk) {
       return res.status(404).json({
         success: false,
         message: "Produk tidak ditemukan"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Produk berhasil ditemukan",
@@ -210,7 +210,7 @@ exports.getProdukByToko = async (req, res) => {
     const { toko_id } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 500;
-    
+
     // Validasi toko_id
     if (!toko_id || isNaN(toko_id)) {
       return res.status(400).json({
@@ -218,7 +218,7 @@ exports.getProdukByToko = async (req, res) => {
         message: "ID toko tidak valid"
       });
     }
-    
+
     // Cek apakah toko exists
     const tokoExists = await Toko.exists(toko_id);
     if (!tokoExists) {
@@ -227,9 +227,9 @@ exports.getProdukByToko = async (req, res) => {
         message: "Toko tidak ditemukan"
       });
     }
-    
+
     const result = await Produk.getByTokoId(parseInt(toko_id), page, limit);
-    
+
     res.json({
       success: true,
       message: `Data produk toko ${toko_id} berhasil diambil`,
@@ -259,9 +259,9 @@ exports.updateProduk = async (req, res) => {
           message: err.message
         });
       }
-      
+
       const { id } = req.params;
-      const { nama_produk, barcode,harga_beli, harga_jual, stok, toko_id, hapus_gambar } = req.body;
+      const { nama_produk, barcode, harga_beli, harga_jual, stok, toko_id, hapus_gambar } = req.body;
 
       // Cek apakah produk exists
       const produkExists = await Produk.exists(id);
@@ -269,7 +269,7 @@ exports.updateProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(404).json({
           success: false,
           message: "Produk tidak ditemukan"
@@ -277,11 +277,11 @@ exports.updateProduk = async (req, res) => {
       }
 
       // Validasi input
-      if (!nama_produk || !barcode ||!harga_beli || !harga_jual || !toko_id) {
+      if (!nama_produk || !barcode || !harga_beli || !harga_jual || !toko_id) {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(400).json({
           success: false,
           message: "Nama produk, harga beli, harga jual, dan toko wajib diisi"
@@ -293,7 +293,7 @@ exports.updateProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(400).json({
           success: false,
           message: "Harga beli dan harga jual harus berupa angka"
@@ -306,7 +306,7 @@ exports.updateProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         return res.status(404).json({
           success: false,
           message: "Toko tidak ditemukan"
@@ -339,12 +339,12 @@ exports.updateProduk = async (req, res) => {
       try {
         // Update produk
         const updated = await Produk.update(id, updateData);
-        
+
         if (!updated) {
           if (req.file) {
             require('fs').unlinkSync(req.file.path);
           }
-          
+
           return res.status(400).json({
             success: false,
             message: "Gagal mengupdate produk"
@@ -352,7 +352,7 @@ exports.updateProduk = async (req, res) => {
         }
 
         const updatedProduk = await Produk.getById(id);
-        
+
         res.json({
           success: true,
           message: "Produk berhasil diupdate",
@@ -362,7 +362,7 @@ exports.updateProduk = async (req, res) => {
         if (req.file) {
           require('fs').unlinkSync(req.file.path);
         }
-        
+
         // Handle uniqueness error or other business logic errors
         if (error.message.includes('Nama produk sudah ada') || error.message.includes('Barcode sudah digunakan')) {
           return res.status(400).json({
@@ -370,7 +370,7 @@ exports.updateProduk = async (req, res) => {
             message: error.message
           });
         }
-        
+
         throw error;
       }
     });
@@ -397,32 +397,32 @@ exports.uploadGambar = async (req, res) => {
           message: err.message
         });
       }
-      
+
       const { id } = req.params;
-      
+
       if (!req.file) {
         return res.status(400).json({
           success: false,
           message: "File gambar diperlukan"
         });
       }
-      
+
       // Cek apakah produk exists
       const produkExists = await Produk.exists(id);
       if (!produkExists) {
         // Hapus file yang sudah diupload
         require('fs').unlinkSync(req.file.path);
-        
+
         return res.status(404).json({
           success: false,
           message: "Produk tidak ditemukan"
         });
       }
-      
+
       try {
         // Update hanya gambar
         const updated = await Produk.updateGambar(id, req.file.filename);
-        
+
         if (!updated) {
           require('fs').unlinkSync(req.file.path);
           return res.status(400).json({
@@ -430,9 +430,9 @@ exports.uploadGambar = async (req, res) => {
             message: "Gagal mengupload gambar"
           });
         }
-        
+
         const produk = await Produk.getById(id);
-        
+
         res.json({
           success: true,
           message: "Gambar berhasil diupload",
@@ -470,7 +470,7 @@ exports.uploadGambar = async (req, res) => {
 exports.deleteGambar = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Cek apakah produk exists
     const produk = await Produk.getById(id);
     if (!produk) {
@@ -479,14 +479,14 @@ exports.deleteGambar = async (req, res) => {
         message: "Produk tidak ditemukan"
       });
     }
-    
+
     if (!produk.gambar) {
       return res.status(400).json({
         success: false,
         message: "Produk tidak memiliki gambar"
       });
     }
-    
+
     // Update produk dengan menghapus gambar
     const updated = await Produk.update(id, {
       nama_produk: produk.nama_produk,
@@ -496,14 +496,14 @@ exports.deleteGambar = async (req, res) => {
       gambar: null,
       toko_id: produk.toko_id
     });
-    
+
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: "Gagal menghapus gambar"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Gambar produk berhasil dihapus"
@@ -526,7 +526,7 @@ exports.updateStok = async (req, res) => {
   try {
     const { id } = req.params;
     const { stok, action, quantity } = req.body;
-    
+
     // Cek apakah produk exists
     const produkExists = await Produk.exists(id);
     if (!produkExists) {
@@ -535,9 +535,9 @@ exports.updateStok = async (req, res) => {
         message: "Produk tidak ditemukan"
       });
     }
-    
+
     let updated = false;
-    
+
     if (stok !== undefined) {
       // Update stok langsung
       if (isNaN(stok) || parseInt(stok) < 0) {
@@ -546,9 +546,9 @@ exports.updateStok = async (req, res) => {
           message: "Stok harus angka dan tidak boleh negatif"
         });
       }
-      
+
       updated = await Produk.updateStok(id, parseInt(stok));
-    } 
+    }
     else if (action && quantity) {
       // Adjust stok (tambah/kurangi)
       if (isNaN(quantity)) {
@@ -557,7 +557,7 @@ exports.updateStok = async (req, res) => {
           message: "Quantity harus berupa angka"
         });
       }
-      
+
       const qty = action === 'tambah' ? parseInt(quantity) : -parseInt(quantity);
       updated = await Produk.adjustStok(id, qty);
     }
@@ -567,16 +567,16 @@ exports.updateStok = async (req, res) => {
         message: "Berikan stok atau action dengan quantity"
       });
     }
-    
+
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: "Gagal mengupdate stok"
       });
     }
-    
+
     const updatedProduk = await Produk.getById(id);
-    
+
     res.json({
       success: true,
       message: "Stok produk berhasil diupdate",
@@ -599,7 +599,7 @@ exports.updateStok = async (req, res) => {
 exports.deleteProduk = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Cek apakah produk exists
     const produkExists = await Produk.exists(id);
     if (!produkExists) {
@@ -608,16 +608,16 @@ exports.deleteProduk = async (req, res) => {
         message: "Produk tidak ditemukan"
       });
     }
-    
+
     const deleted = await Produk.delete(id);
-    
+
     if (!deleted) {
       return res.status(400).json({
         success: false,
         message: "Gagal menghapus produk"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Produk berhasil dihapus"
@@ -640,16 +640,16 @@ exports.searchProduk = async (req, res) => {
   try {
     const { q } = req.query;
     const { toko_id } = req.query;
-    
+
     if (!q || q.trim() === '') {
       return res.status(400).json({
         success: false,
         message: "Kata kunci pencarian harus diisi"
       });
     }
-    
+
     const results = await Produk.search(q.trim(), toko_id);
-    
+
     res.json({
       success: true,
       message: "Pencarian selesai",
@@ -674,9 +674,9 @@ exports.getLowStock = async (req, res) => {
   try {
     const threshold = parseInt(req.query.threshold) || 10;
     const { toko_id } = req.query;
-    
+
     const results = await Produk.getLowStock(threshold, toko_id);
-    
+
     res.json({
       success: true,
       message: `Produk dengan stok ≤ ${threshold}`,
@@ -693,31 +693,32 @@ exports.getLowStock = async (req, res) => {
 };
 
 exports.getMutasiProduk = async (req, res) => {
-    try {
-      const { produk_id } = req.params;
+  try {
+    const { produk_id } = req.params;
+    const { start_date, end_date } = req.query;
 
-      const produk = await Produk.findById(produk_id);
-      if (!produk) {
-        return res.status(404).json({
-          success: false,
-          message: 'Produk tidak ditemukan'
-        });
-      }
-
-      const mutasi = await Produk.getMutasiByProduk(produk_id);
-
-      res.json({
-        success: true,
-        produk,
-        mutasi
-      });
-
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({
+    const produk = await Produk.findById(produk_id);
+    if (!produk) {
+      return res.status(404).json({
         success: false,
-        message: 'Terjadi kesalahan server'
+        message: 'Produk tidak ditemukan'
       });
     }
-  };
+
+    const mutasi = await Produk.getMutasiByProduk(produk_id, start_date, end_date);
+
+    res.json({
+      success: true,
+      produk,
+      mutasi
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
 

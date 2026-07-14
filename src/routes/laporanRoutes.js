@@ -14,6 +14,7 @@ router.get('/operasional/:toko_id', laporanController.getLaporanOperasional);
 router.get('/inout/:toko_id', laporanController.getInOutProduk);
 router.get('/laporantoko/', laporanController.getLaporanToko);
 router.get('/laporantoko/:toko_id/detail', laporanController.getDetailLaporanToko);
+router.get('/nota/:member_id', laporanController.getNotabyPelanggan);
 
 // EXPORT ROUTES
 router.get('/export/nilai-stok/:toko_id', laporanController.exportNilaiStokExcel);

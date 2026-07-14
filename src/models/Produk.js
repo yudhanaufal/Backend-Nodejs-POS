@@ -8,19 +8,19 @@ class Produk {
    */
   static async create(data) {
     const { nama_produk, barcode, harga_beli, harga_jual, stok, gambar, toko_id } = data;
-    
+
     // Check uniqueness
     const uniqueness = await this.isUnique({ nama_produk, barcode, toko_id });
     if (!uniqueness.unique) {
       throw new Error(uniqueness.message);
     }
-    
+
     const [result] = await db.query(
       `INSERT INTO produk (nama_produk, barcode, harga_beli, harga_jual, stok, gambar, toko_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [nama_produk, barcode, harga_beli, harga_jual, stok || 0, gambar || null, toko_id]
     );
-    
+
     return result.insertId;
   }
 
@@ -31,19 +31,19 @@ class Produk {
     const offset = (page - 1) * limit;
     let whereClause = '';
     const params = [];
-    
+
     if (filters.toko_id) {
       whereClause = 'WHERE p.toko_id = ? AND p.deleted_at IS NULL';
       params.push(filters.toko_id);
     } else {
       whereClause = 'WHERE p.deleted_at IS NULL';
     }
-    
+
     if (filters.search) {
       whereClause = `${whereClause} AND p.nama_produk LIKE ?`;
       params.push(`%${filters.search}%`);
     }
-    
+
     const [rows] = await db.query(
       `SELECT 
          p.*,
@@ -56,18 +56,18 @@ class Produk {
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
-    
+
     // Tambah URL gambar
     const productsWithUrl = rows.map(produk => ({
       ...produk,
       gambar_url: produk.gambar ? this.getImageUrl(produk.gambar) : null
     }));
-    
+
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) as total FROM produk p ${whereClause}`,
       params
     );
-    
+
     return {
       data: productsWithUrl,
       pagination: {
@@ -93,9 +93,9 @@ class Produk {
        WHERE p.id = ? AND p.deleted_at IS NULL`,
       [id]
     );
-    
+
     if (rows.length === 0) return null;
-    
+
     const produk = rows[0];
     return {
       ...produk,
@@ -108,7 +108,7 @@ class Produk {
    */
   static async getByTokoId(tokoId, page = 1, limit = 500) {
     const offset = (page - 1) * limit;
-    
+
     const [rows] = await db.query(
       `SELECT * FROM produk 
        WHERE toko_id = ? AND deleted_at IS NULL
@@ -116,18 +116,18 @@ class Produk {
        LIMIT ? OFFSET ?`,
       [tokoId, limit, offset]
     );
-    
+
     // Tambah URL gambar
     const productsWithUrl = rows.map(produk => ({
       ...produk,
       gambar_url: produk.gambar ? this.getImageUrl(produk.gambar) : null
     }));
-    
+
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) as total FROM produk WHERE toko_id = ? AND deleted_at IS NULL`,
       [tokoId]
     );
-    
+
     return {
       data: productsWithUrl,
       pagination: {
@@ -144,13 +144,13 @@ class Produk {
    */
   static async update(id, data) {
     const { nama_produk, barcode, harga_beli, harga_jual, stok, gambar, toko_id } = data;
-    
+
     // Check uniqueness excluding current ID
     const uniqueness = await this.isUnique({ nama_produk, barcode, toko_id }, id);
     if (!uniqueness.unique) {
       throw new Error(uniqueness.message);
     }
-    
+
     // Jika ada gambar baru dan ingin hapus gambar lama
     if (gambar !== undefined) {
       // Hapus gambar lama jika ada
@@ -159,7 +159,7 @@ class Produk {
         this.deleteImage(oldProduk.gambar);
       }
     }
-    
+
     const [result] = await db.query(
       `UPDATE produk 
        SET nama_produk = ?, barcode = ?, harga_beli = ?, harga_jual = ?, 
@@ -167,7 +167,7 @@ class Produk {
        WHERE id = ? AND deleted_at IS NULL`,
       [nama_produk, barcode, harga_beli, harga_jual, stok, gambar || null, toko_id, id]
     );
-    
+
     return result.affectedRows > 0;
   }
 
@@ -179,7 +179,7 @@ class Produk {
       `UPDATE produk SET stok = ? WHERE id = ? AND deleted_at IS NULL`,
       [newStok, id]
     );
-    
+
     return result.affectedRows > 0;
   }
 
@@ -191,7 +191,7 @@ class Produk {
       `UPDATE produk SET stok = stok + ? WHERE id = ? AND deleted_at IS NULL`,
       [quantity, id]
     );
-    
+
     return result.affectedRows > 0;
   }
 
@@ -203,7 +203,7 @@ class Produk {
       'UPDATE produk SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
       [id]
     );
-    
+
     return result.affectedRows > 0;
   }
 
@@ -214,16 +214,16 @@ class Produk {
     const searchTerm = `%${keyword}%`;
     let query = `SELECT * FROM produk WHERE nama_produk LIKE ? AND deleted_at IS NULL`;
     const params = [searchTerm];
-    
+
     if (tokoId) {
       query += ' AND toko_id = ?';
       params.push(tokoId);
     }
-    
+
     query += ' ORDER BY nama_produk ASC';
-    
+
     const [rows] = await db.query(query, params);
-    
+
     // Tambah URL gambar
     return rows.map(produk => ({
       ...produk,
@@ -239,7 +239,7 @@ class Produk {
       'SELECT 1 FROM produk WHERE id = ? AND deleted_at IS NULL LIMIT 1',
       [id]
     );
-    
+
     return rows.length > 0;
   }
 
@@ -251,7 +251,7 @@ class Produk {
       'SELECT 1 FROM produk WHERE id = ? AND toko_id = ? AND deleted_at IS NULL LIMIT 1',
       [produkId, tokoId]
     );
-    
+
     return rows.length > 0;
   }
 
@@ -261,16 +261,16 @@ class Produk {
   static async getLowStock(threshold = 10, tokoId = null) {
     let query = `SELECT * FROM produk WHERE stok <= ? AND deleted_at IS NULL`;
     const params = [threshold];
-    
+
     if (tokoId) {
       query += ' AND toko_id = ?';
       params.push(tokoId);
     }
-    
+
     query += ' ORDER BY stok ASC';
-    
+
     const [rows] = await db.query(query, params);
-    
+
     // Tambah URL gambar
     return rows.map(produk => ({
       ...produk,
@@ -288,7 +288,7 @@ class Produk {
     return rows[0];
   }
 
-  static async getMutasiByProduk(produk_id) {
+  static async getMutasiByProduk(produk_id, start_date, end_date) {
     const [rows] = await db.query(
       `SELECT 
         id,
@@ -302,8 +302,9 @@ class Produk {
         created_at
       FROM mutasi_stok
       WHERE produk_id = ?
+      AND created_at BETWEEN ? AND ?
       ORDER BY created_at ASC`,
-      [produk_id]
+      [produk_id, start_date, end_date]
     );
     return rows;
   }
@@ -329,7 +330,7 @@ class Produk {
    */
   static deleteImage(filename) {
     if (!filename) return;
-    
+
     const imagePath = this.getImagePath(filename);
     if (fs.existsSync(imagePath)) {
       fs.unlinkSync(imagePath);
@@ -346,12 +347,12 @@ class Produk {
     if (oldProduk && oldProduk.gambar) {
       this.deleteImage(oldProduk.gambar);
     }
-    
+
     const [result] = await db.query(
       `UPDATE produk SET gambar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`,
       [filename, id]
     );
-    
+
     return result.affectedRows > 0;
   }
 
@@ -360,37 +361,37 @@ class Produk {
    */
   static async isUnique(data, excludeId = null) {
     const { nama_produk, barcode, toko_id } = data;
-    
+
     // Cek nama_produk
     let nameQuery = 'SELECT id FROM produk WHERE nama_produk = ? AND toko_id = ? AND deleted_at IS NULL';
     const nameParams = [nama_produk, toko_id];
-    
+
     if (excludeId) {
       nameQuery += ' AND id != ?';
       nameParams.push(excludeId);
     }
-    
+
     const [nameRows] = await db.query(nameQuery, nameParams);
     if (nameRows.length > 0) {
       return { unique: false, message: 'Nama produk sudah ada di toko ini' };
     }
-    
+
     // Cek barcode
     if (barcode) {
       let barcodeQuery = 'SELECT id FROM produk WHERE barcode = ? AND toko_id = ? AND deleted_at IS NULL';
       const barcodeParams = [barcode, toko_id];
-      
+
       if (excludeId) {
         barcodeQuery += ' AND id != ?';
         barcodeParams.push(excludeId);
       }
-      
+
       const [barcodeRows] = await db.query(barcodeQuery, barcodeParams);
       if (barcodeRows.length > 0) {
         return { unique: false, message: 'Barcode sudah digunakan di toko ini' };
       }
     }
-    
+
     return { unique: true };
   }
 }

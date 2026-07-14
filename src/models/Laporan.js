@@ -281,6 +281,7 @@ const Laporan = {
     const query = `
       SELECT 
         COALESCE(m.nama_member, 'Non-Member') AS pelanggan,
+        m.id AS member_id,
         COUNT(DISTINCT t.id) AS total_transaksi,
         SUM(t.total) AS total_omset,
         SUM(t.total_laba) AS total_laba
@@ -289,7 +290,7 @@ const Laporan = {
       WHERE DATE(t.tanggal) BETWEEN ? AND ?
         AND t.toko_id = ?
         AND t.status = 'Lunas'
-      GROUP BY pelanggan
+      GROUP BY pelanggan, m.id
       ORDER BY total_transaksi DESC
     `;
 
@@ -383,40 +384,149 @@ const Laporan = {
       SELECT
         tk.nama_toko,
         tk.id AS toko_id,
-        SUM(t.total) AS total_omset,
-        SUM(t.total_laba) AS total_laba,
-        SUM(t.total_diskon) AS total_diskon,
-        COUNT(t.id) AS total_transaksi
+        COALESCE(t.total_omset, 0) AS total_omset,
+        COALESCE(t.total_laba, 0) AS total_laba,
+        COALESCE(t.total_diskon, 0) AS total_diskon,
+        COALESCE(t.total_transaksi, 0) AS total_transaksi,
+        COALESCE(o.total_operasional, 0) AS total_operasional,
+        COALESCE(s.total_setoran, 0) AS total_setoran,
+        (COALESCE(t.total_laba, 0) - COALESCE(o.total_operasional, 0)) AS total_laba_bersih
       FROM toko tk
-      LEFT JOIN transaksi t ON t.toko_id = tk.id
-        AND DATE(t.tanggal) BETWEEN ? AND ?
-        AND t.status = 'Lunas'
-      GROUP BY tk.id, tk.nama_toko
+      LEFT JOIN (
+        SELECT 
+          toko_id,
+          SUM(total) AS total_omset,
+          SUM(total_laba) AS total_laba,
+          SUM(total_diskon) AS total_diskon,
+          COUNT(id) AS total_transaksi
+        FROM transaksi
+        WHERE status = 'Lunas'
+          AND DATE(tanggal) BETWEEN ? AND ?
+        GROUP BY toko_id
+      ) t ON tk.id = t.toko_id
+      LEFT JOIN (
+        SELECT 
+          toko_id,
+          SUM(total) AS total_operasional
+        FROM operasional
+        WHERE DATE(tanggal) BETWEEN ? AND ?
+        GROUP BY toko_id
+      ) o ON tk.id = o.toko_id
+      LEFT JOIN (
+        SELECT 
+          toko_id,
+          SUM(total) AS total_setoran
+        FROM setoran
+        WHERE DATE(tanggal) BETWEEN ? AND ?
+        GROUP BY toko_id
+      ) s ON tk.id = s.toko_id
       ORDER BY tk.nama_toko ASC
     `;
-    const [rows] = await db.query(query, [start_date, end_date]);
+    const [rows] = await db.query(query, [
+      start_date, end_date, // t
+      start_date, end_date, // o
+      start_date, end_date  // s
+    ]);
     return rows;
   },
   async getdetaillaporantoko(start_date, end_date, tokoid) {
     const query = `
       SELECT
-        DATE(t.tanggal) AS tanggal,
+        d.tanggal,
         tk.nama_toko,
-        SUM(t.total) AS total_omset,
-        SUM(t.total_laba) AS total_laba,
-        SUM(t.total_diskon) AS total_diskon,
-        COUNT(t.id) AS total_transaksi
-      FROM transaksi t
-      JOIN toko tk ON t.toko_id = tk.id
-      WHERE DATE(t.tanggal) BETWEEN ? AND ?
-        AND t.toko_id = ?
-        AND t.status = 'Lunas'
-      GROUP BY DATE(t.tanggal), tk.id, tk.nama_toko
-      ORDER BY DATE(t.tanggal) ASC
+        COALESCE(t.total_omset, 0) AS total_omset,
+        COALESCE(t.total_laba, 0) AS total_laba,
+        COALESCE(t.total_diskon, 0) AS total_diskon,
+        COALESCE(t.total_transaksi, 0) AS total_transaksi,
+        COALESCE(o.total_operasional, 0) AS total_operasional,
+        COALESCE(s.total_setoran, 0) AS total_setoran,
+        (COALESCE(t.total_laba, 0) - COALESCE(o.total_operasional, 0)) AS total_laba_bersih
+      FROM (
+        SELECT DISTINCT DATE(tanggal) AS tanggal 
+        FROM (
+          SELECT tanggal FROM transaksi WHERE toko_id = ? AND status = 'Lunas' AND DATE(tanggal) BETWEEN ? AND ?
+          UNION
+          SELECT tanggal FROM operasional WHERE toko_id = ? AND DATE(tanggal) BETWEEN ? AND ?
+          UNION
+          SELECT tanggal FROM setoran WHERE toko_id = ? AND DATE(tanggal) BETWEEN ? AND ?
+        ) all_dates
+      ) d
+      JOIN toko tk ON tk.id = ?
+      LEFT JOIN (
+        SELECT 
+          DATE(tanggal) AS tanggal,
+          SUM(total) AS total_omset,
+          SUM(total_laba) AS total_laba,
+          SUM(total_diskon) AS total_diskon,
+          COUNT(id) AS total_transaksi
+        FROM transaksi
+        WHERE toko_id = ?
+          AND status = 'Lunas'
+          AND DATE(tanggal) BETWEEN ? AND ?
+        GROUP BY DATE(tanggal)
+      ) t ON d.tanggal = t.tanggal
+      LEFT JOIN (
+        SELECT 
+          DATE(tanggal) AS tanggal,
+          SUM(total) AS total_operasional
+        FROM operasional
+        WHERE toko_id = ?
+          AND DATE(tanggal) BETWEEN ? AND ?
+        GROUP BY DATE(tanggal)
+      ) o ON d.tanggal = o.tanggal
+      LEFT JOIN (
+        SELECT 
+          DATE(tanggal) AS tanggal,
+          SUM(total) AS total_setoran
+        FROM setoran
+        WHERE toko_id = ?
+          AND DATE(tanggal) BETWEEN ? AND ?
+        GROUP BY DATE(tanggal)
+      ) s ON d.tanggal = s.tanggal
+      ORDER BY d.tanggal ASC
     `;
-    const [rows] = await db.query(query, [start_date, end_date, tokoid]);
+    const [rows] = await db.query(query, [
+      tokoid, start_date, end_date, // UNION 1
+      tokoid, start_date, end_date, // UNION 2
+      tokoid, start_date, end_date, // UNION 3
+      tokoid,                       // JOIN toko
+      tokoid, start_date, end_date, // LEFT JOIN t
+      tokoid, start_date, end_date, // LEFT JOIN o
+      tokoid, start_date, end_date  // LEFT JOIN s
+    ]);
     return rows;
   },
+  async getNotabyPelanggan(start_date, end_date, member_id) {
+    const query = `
+      SELECT 
+        t.id,
+        t.invoice,
+        t.total,
+        t.kembali,
+        t.metode,
+        t.kasir,
+        t.status,
+        t.total_laba,
+        t.total_diskon,
+        t.tanggal,
+        m.nama_member
+      FROM transaksi t
+      LEFT JOIN member m ON t.member_id = m.id
+      WHERE DATE(t.tanggal) BETWEEN ? AND ?
+      AND t.member_id= ?
+      ORDER BY t.tanggal DESC
+    `;
+
+    const [rows] = await db.query(query, [
+      start_date,
+      end_date,
+      member_id
+    ]);
+
+    return rows;
+  },
+
+
 };
 
 module.exports = Laporan;
