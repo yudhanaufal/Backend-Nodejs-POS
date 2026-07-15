@@ -8,7 +8,7 @@ router.get('/produk-terlaris/:toko_id', laporanController.getLaporanProdukTerlar
 router.get('/transaksi/:toko_id', laporanController.getLaporanTransaksi);
 router.get('/detail/:transaksi_id', laporanController.getDetailByTransaksi);
 router.get('/pelanggan/:toko_id', laporanController.getLaporanPelanggan);
-router.get('/pelanggan/:nama/produk', laporanController.detailProdukPelanggan);
+router.get('/pelanggan/:member_id/produk', laporanController.detailProdukPelanggan);
 router.get('/setoran/:toko_id', laporanController.getLaporanSetoran);
 router.get('/operasional/:toko_id', laporanController.getLaporanOperasional);
 router.get('/inout/:toko_id', laporanController.getInOutProduk);

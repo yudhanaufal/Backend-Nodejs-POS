@@ -301,33 +301,34 @@ const Laporan = {
   // =============================
   // DETAIL PRODUK PER PELANGGAN
   // =============================
-  async getProdukByPelanggan(nama_pelanggan, start, end, toko_id) {
-
+  async getProdukByPelanggan(member_id, start, end) {
     const query = `
-      SELECT
-        dt.nama_produk,
-        SUM(dt.quantity) AS total_quantity
-      FROM transaksi t
-      JOIN detail_transaksi dt ON t.id = dt.transaksi_id
-      LEFT JOIN member m ON t.member_id = m.id
-      WHERE DATE(t.tanggal) BETWEEN ? AND ?
-        AND t.toko_id = ?
-        AND t.status = 'Lunas'
-        AND COALESCE(m.nama_member, 'Non-Member') = ?
-      GROUP BY dt.nama_produk
-      ORDER BY total_quantity DESC
-    `;
+    SELECT
+      dt.nama_produk,
+      SUM(dt.quantity) AS total_quantity
+    FROM transaksi t
+    JOIN detail_transaksi dt ON t.id = dt.transaksi_id
+    WHERE DATE(t.tanggal) BETWEEN ? AND ?
+      AND t.status = 'Lunas'
+      AND t.member_id = ?
+    GROUP BY dt.nama_produk
+    ORDER BY total_quantity DESC
+  `;
+
+    console.log({
+      member_id,
+      start,
+      end
+    });
 
     const [rows] = await db.query(query, [
       start,
       end,
-      toko_id,
-      nama_pelanggan
+      member_id
     ]);
 
     return rows;
   },
-
   // =============================
   // LAPORAN SETORAN
   // =============================

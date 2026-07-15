@@ -223,19 +223,18 @@ exports.getLaporanPelanggan = async (req, res) => {
 
 exports.detailProdukPelanggan = async (req, res) => {
   try {
-    const { nama } = req.params;
-    const { start, end, toko_id } = req.query;
+    const { member_id } = req.params;
+    const { start, end } = req.query;
 
     const produk = await Laporan.getProdukByPelanggan(
-      nama,
+      member_id,
       start,
-      end,
-      toko_id
+      end
     );
 
     res.json({
       success: true,
-      pelanggan: nama,
+      member_id,
       produk
     });
 
