@@ -110,29 +110,51 @@ const Laporan = {
   },
   async getInOutproduk(toko_id, startdate, endDate) {
     const [rows] = await db.query(`
-        SELECT
-          DATE_FORMAT(ms.created_at, '%Y-%m-%d') AS tanggal,
-          p.id AS produk_id,
-          p.nama_produk,
-          SUM(CASE 
+      SELECT
+        DATE_FORMAT(ms.created_at, '%Y-%m-%d') AS tanggal,
+        p.id AS produk_id,
+        p.nama_produk,
+        SUM(
+          CASE
             WHEN ms.sumber = 'pembelian' THEN ms.quantity
             WHEN ms.sumber = 'cancel_pembelian' THEN -ms.quantity
             ELSE 0
-          END) AS kuantitas_pembelian,
-          SUM(CASE
+          END
+        ) AS kuantitas_pembelian,
+        SUM(
+          CASE
             WHEN ms.sumber = 'penjualan' THEN ms.quantity
             WHEN ms.sumber = 'cancel_penjualan' THEN -ms.quantity
             ELSE 0
-          END) AS kuantitas_penjualan
-        FROM mutasi_stok ms
-        JOIN produk p ON p.id = ms.produk_id
-        WHERE ms.toko_id = ?
-          AND ms.sumber IN ('pembelian', 'cancel_pembelian', 'penjualan', 'cancel_penjualan')
-          AND DATE(ms.created_at) BETWEEN ? AND ?
-        GROUP BY p.id, p.nama_produk, DATE_FORMAT(ms.created_at, '%Y-%m-%d')
-        ORDER BY p.nama_produk ASC, DATE_FORMAT(ms.created_at, '%Y-%m-%d') ASC
+          END
+        ) AS kuantitas_penjualan,
+        SUM(
+          CASE
+            WHEN ms.sumber = 'return' THEN ms.quantity
+            WHEN ms.sumber = 'cancel_return' THEN -ms.quantity
+            ELSE 0
+          END
+        ) AS kuantitas_return
+      FROM mutasi_stok ms
+      JOIN produk p ON p.id = ms.produk_id
+      WHERE ms.toko_id = ?
+        AND ms.sumber IN (
+          'pembelian',
+          'cancel_pembelian',
+          'penjualan',
+          'cancel_penjualan',
+          'return',
+          'cancel_return'
+        )
+        AND DATE(ms.created_at) BETWEEN ? AND ?
+      GROUP BY
+        p.id,
+        p.nama_produk,
+        DATE_FORMAT(ms.created_at, '%Y-%m-%d')
+      ORDER BY
+        p.nama_produk ASC,
+        DATE_FORMAT(ms.created_at, '%Y-%m-%d') ASC
     `, [toko_id, startdate, endDate]);
-
     // 1. GENERATE LIST TANGGAL LENGKAP BERDASARKAN INPUT
     const listTanggal = [];
     let dCurrent = new Date(startdate);
@@ -157,7 +179,8 @@ const Laporan = {
       produk.riwayat.push({
         tanggal: current.tanggal,
         kuantitas_pembelian: Number(current.kuantitas_pembelian),
-        kuantitas_penjualan: Number(current.kuantitas_penjualan)
+        kuantitas_penjualan: Number(current.kuantitas_penjualan),
+        kuantitas_return: Number(current.kuantitas_return)
       });
       return acc;
     }, []);
@@ -172,7 +195,8 @@ const Laporan = {
         return dataAda || {
           tanggal: tgl,
           kuantitas_pembelian: 0,
-          kuantitas_penjualan: 0
+          kuantitas_penjualan: 0,
+          kuantitas_return: 0
         };
       });
 

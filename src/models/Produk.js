@@ -291,6 +291,7 @@ class Produk {
   static async getMutasiByProduk(produk_id, start_date, end_date) {
     const [rows] = await db.query(
       `SELECT 
+        DATE_FORMAT(created_at, '%Y-%m-%d') AS tanggal,
         id,
         tipe,
         sumber,
@@ -298,11 +299,10 @@ class Produk {
         stok_sebelum,
         stok_sesudah,
         harga_beli,
-        harga_jual,
-        created_at
+        harga_jual
       FROM mutasi_stok
       WHERE produk_id = ?
-      AND created_at BETWEEN ? AND ?
+        AND DATE(created_at) BETWEEN ? AND ?
       ORDER BY created_at ASC`,
       [produk_id, start_date, end_date]
     );
