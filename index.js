@@ -38,6 +38,7 @@ const transaksiRoutes = require('./src/routes/transaksiRoutes');
 const laporanRoutes = require('./src/routes/laporanRoutes');
 const absensiRoutes = require('./src/routes/absensiRoutes');
 const aiRoutes = require('./src/routes/aiRoutes');
+const salesRoutes = require('./src/routes/salesRoutes');
 // ==================== REGISTER ROUTES ====================
 app.use('/api/toko', tokoRoutes);
 app.use('/api/produk', produkRoutes);
@@ -53,6 +54,7 @@ app.use('/api/transaksi', transaksiRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/laporan', laporanRoutes);
 app.use('/api/absensi', absensiRoutes);
+app.use('/api/sales', salesRoutes);
 //app.use('/api/ai', aiRoutes);
 // ==================== BASIC ROUTES ====================
 app.get('/', (req, res) => {

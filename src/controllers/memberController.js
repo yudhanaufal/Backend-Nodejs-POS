@@ -72,13 +72,13 @@ exports.getAllMember = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const toko_id = req.query.toko_id;
     const search = req.query.search;
-    
+
     const filters = {};
     if (toko_id) filters.toko_id = toko_id;
     if (search) filters.search = search;
-    
+
     const result = await Member.getAll(page, limit, filters);
-    
+
     res.json({
       success: true,
       message: "Data member berhasil diambil",
@@ -97,7 +97,7 @@ exports.getAllMember = async (req, res) => {
 exports.getMemberById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Validasi ID
     if (!id || isNaN(id)) {
       return res.status(400).json({
@@ -105,16 +105,16 @@ exports.getMemberById = async (req, res) => {
         message: "ID member tidak valid"
       });
     }
-    
+
     const member = await Member.getById(id);
-    
+
     if (!member) {
       return res.status(404).json({
         success: false,
         message: "Member tidak ditemukan"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Member berhasil ditemukan",
@@ -134,7 +134,7 @@ exports.getMemberByToko = async (req, res) => {
     const { toko_id } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 200;
-    
+
     // Validasi toko_id
     if (!toko_id || isNaN(toko_id)) {
       return res.status(400).json({
@@ -142,7 +142,7 @@ exports.getMemberByToko = async (req, res) => {
         message: "ID toko tidak valid"
       });
     }
-    
+
     // Cek apakah toko exists
     const tokoExists = await Toko.exists(toko_id);
     if (!tokoExists) {
@@ -151,9 +151,9 @@ exports.getMemberByToko = async (req, res) => {
         message: "Toko tidak ditemukan"
       });
     }
-    
+
     const result = await Member.getByTokoId(parseInt(toko_id), page, limit);
-    
+
     res.json({
       success: true,
       message: `Data member toko ${toko_id} berhasil diambil`,
@@ -173,23 +173,23 @@ exports.getMemberByTelepon = async (req, res) => {
   try {
     const { no_tlp } = req.params;
     const { toko_id } = req.query;
-    
+
     if (!no_tlp) {
       return res.status(400).json({
         success: false,
         message: "Nomor telepon harus diisi"
       });
     }
-    
+
     const member = await Member.getByTelepon(no_tlp, toko_id);
-    
+
     if (!member) {
       return res.status(404).json({
         success: false,
         message: "Member tidak ditemukan"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Member berhasil ditemukan",
@@ -207,8 +207,8 @@ exports.getMemberByTelepon = async (req, res) => {
 exports.updateMember = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nama_member, no_tlp, alamat, toko_id } = req.body;
-    
+    const { nama_member, no_tlp, alamat, sales_id, toko_id } = req.body;
+
     // Cek apakah member exists
     const memberExists = await Member.exists(id);
     if (!memberExists) {
@@ -217,7 +217,7 @@ exports.updateMember = async (req, res) => {
         message: "Member tidak ditemukan"
       });
     }
-    
+
     // Validasi input
     if (!nama_member || !no_tlp || !toko_id) {
       return res.status(400).json({
@@ -225,7 +225,7 @@ exports.updateMember = async (req, res) => {
         message: "Nama member, nomor telepon, dan toko wajib diisi"
       });
     }
-    
+
     // Validasi format telepon
     const phoneRegex = /^[0-9]{10,15}$/;
     if (!phoneRegex.test(no_tlp)) {
@@ -234,7 +234,7 @@ exports.updateMember = async (req, res) => {
         message: "Nomor telepon harus 10-15 digit angka"
       });
     }
-    
+
     // Cek apakah nomor telepon sudah digunakan oleh member lain
     const teleponExists = await Member.teleponExists(no_tlp, id);
     if (teleponExists) {
@@ -243,7 +243,7 @@ exports.updateMember = async (req, res) => {
         message: "Nomor telepon sudah digunakan oleh member lain"
       });
     }
-    
+
     // Cek apakah toko exists
     const tokoExists = await Toko.exists(toko_id);
     if (!tokoExists) {
@@ -252,24 +252,25 @@ exports.updateMember = async (req, res) => {
         message: "Toko tidak ditemukan"
       });
     }
-    
+
     // Update member
     const updated = await Member.update(id, {
       nama_member,
       no_tlp,
       alamat: alamat || null,
+      sales_id: sales_id || null,
       toko_id: parseInt(toko_id)
     });
-    
+
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: "Gagal mengupdate member"
       });
     }
-    
+
     const updatedMember = await Member.getById(id);
-    
+
     res.json({
       success: true,
       message: "Member berhasil diupdate",
@@ -287,7 +288,7 @@ exports.updateMember = async (req, res) => {
 exports.deleteMember = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Cek apakah member exists
     const memberExists = await Member.exists(id);
     if (!memberExists) {
@@ -296,16 +297,16 @@ exports.deleteMember = async (req, res) => {
         message: "Member tidak ditemukan"
       });
     }
-    
+
     const deleted = await Member.delete(id);
-    
+
     if (!deleted) {
       return res.status(400).json({
         success: false,
         message: "Gagal menghapus member"
       });
     }
-    
+
     res.json({
       success: true,
       message: "Member berhasil dihapus"
@@ -323,16 +324,16 @@ exports.searchMember = async (req, res) => {
   try {
     const { q } = req.query;
     const { toko_id } = req.query;
-    
+
     if (!q || q.trim() === '') {
       return res.status(400).json({
         success: false,
         message: "Kata kunci pencarian harus diisi"
       });
     }
-    
+
     const results = await Member.search(q.trim(), toko_id);
-    
+
     res.json({
       success: true,
       message: "Pencarian selesai",
@@ -351,7 +352,7 @@ exports.searchMember = async (req, res) => {
 exports.getMemberStats = async (req, res) => {
   try {
     const { toko_id } = req.params;
-    
+
     // Validasi toko_id
     if (!toko_id || isNaN(toko_id)) {
       return res.status(400).json({
@@ -359,7 +360,7 @@ exports.getMemberStats = async (req, res) => {
         message: "ID toko tidak valid"
       });
     }
-    
+
     // Cek apakah toko exists
     const tokoExists = await Toko.exists(toko_id);
     if (!tokoExists) {
@@ -368,9 +369,9 @@ exports.getMemberStats = async (req, res) => {
         message: "Toko tidak ditemukan"
       });
     }
-    
+
     const stats = await Member.getStatsByToko(parseInt(toko_id));
-    
+
     res.json({
       success: true,
       message: `Statistik member toko ${toko_id}`,

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # 1. Backend Node.js POS
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: node_pos_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=pos
+      - DB_PORT=3306
+    depends_on:
+      - db
+
+  # 2. Database MySQL
+  db:
+    image: mysql:8.0
+    container_name: mysql_pos_db
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: pos
+    volumes:
+      - mysql_pos_data:/var/lib/mysql
+
+  # 3. Database Manager (Adminer - Ringan & Ringkas)
+  adminer:
+    image: adminer:latest
+    container_name: adminer_pos
+    restart: always
+    ports:
+      - "8085:8080"
+    depends_on:
+      - db
+
+volumes:
+  mysql_pos_data:

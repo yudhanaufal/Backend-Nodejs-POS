@@ -136,14 +136,14 @@ class Member {
    * UPDATE - Update member data
    */
   static async update(id, data) {
-    const { nama_member, no_tlp, alamat, toko_id } = data;
+    const { nama_member, no_tlp, alamat, sales_id, toko_id } = data;
 
     const [result] = await db.query(
       `UPDATE member 
-       SET nama_member = ?, no_tlp = ?, alamat = ?, 
+       SET nama_member = ?, no_tlp = ?, alamat = ?, sales_id = ?, 
            toko_id = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [nama_member, no_tlp, alamat || null, toko_id, id]
+      [nama_member, no_tlp, alamat || null, sales_id || null, toko_id, id]
     );
 
     return result.affectedRows > 0;
