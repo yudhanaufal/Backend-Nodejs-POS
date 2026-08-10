@@ -72,7 +72,9 @@ exports.getSales = async (req, res) => {
 
 exports.getAllSales = async (req, res) => {
     try {
-        const sales = await Sales.getAllSales();
+        const { start_date, end_date } = req.query;
+
+        const sales = await Sales.getAllSales(start_date, end_date);
         res.json({
             success: true,
             data: sales
@@ -90,7 +92,13 @@ exports.getAllSales = async (req, res) => {
 exports.getSalesById = async (req, res) => {
     try {
         const { id } = req.params;
-        const sales = await Sales.getSalesById(id);
+        const { start_date, end_date } = req.query;
+
+        const sales = await Sales.getSalesById(
+            id,
+            start_date,
+            end_date
+        );
 
         if (!sales) {
             return res.status(404).json({
@@ -103,12 +111,16 @@ exports.getSalesById = async (req, res) => {
             success: true,
             data: sales
         });
+
     } catch (error) {
         console.error('Get Sales By Id Error:', error);
+
         res.status(500).json({
             success: false,
             message: "Gagal mengambil detail sales",
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            error: process.env.NODE_ENV === 'development'
+                ? error.message
+                : undefined
         });
     }
 };
@@ -116,6 +128,7 @@ exports.getSalesById = async (req, res) => {
 exports.getMemberByTokoAndSales = async (req, res) => {
     try {
         const { toko_id, sales_id } = req.params;
+        const { start_date, end_date } = req.query;
 
         if (!toko_id || !sales_id) {
             return res.status(400).json({
@@ -124,7 +137,7 @@ exports.getMemberByTokoAndSales = async (req, res) => {
             });
         }
 
-        const members = await Sales.getMemberByTokoAndSales(toko_id, sales_id);
+        const members = await Sales.getMemberByTokoAndSales(toko_id, sales_id, start_date, end_date);
 
         res.json({
             success: true,
