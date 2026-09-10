@@ -96,6 +96,15 @@ class Toko {
     
     return rows.length > 0;
   }
+
+  static async getByGroupId(groupId) {
+    const [rows] = await db.query(
+      'SELECT * FROM toko WHERE ? = 0 OR group_toko = ?',
+      [groupId, groupId]
+    );
+    
+    return rows;
+  }
 }
 
 module.exports = Toko;

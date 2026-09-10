@@ -1,4 +1,4 @@
-/*async function chat(question, tokoId) {
+/**async function chat(question, tokoId) {
     const tool = await chooseTool(question);
 
     const data = await executeTool(
@@ -12,4 +12,4 @@
     );
 
     return answer;
-} */ 
+} **/

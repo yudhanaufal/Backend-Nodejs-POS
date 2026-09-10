@@ -207,3 +207,22 @@ exports.searchToko = async (req, res) => {
     });
   }
 };
+
+exports.getTokoByGroupId = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const tokoList = await tokoModel.getByGroupId(groupId);
+
+    res.json({
+      success: true,
+      data: tokoList
+    });
+  } catch (error) {
+    console.error('Get toko by group ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil data toko berdasarkan group ID'
+    });
+  }
+};

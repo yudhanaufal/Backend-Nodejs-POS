@@ -9,7 +9,7 @@ router.get('/:id', tokoController.getTokoById);       // GET /api/toko/:id
 router.post('/', tokoController.createToko);          // POST /api/toko
 router.put('/:id', tokoController.updateToko);        // PUT /api/toko/:id
 router.delete('/:id', tokoController.deleteToko);     // DELETE /api/toko/:id
-
+router.get('/group/:groupId', tokoController.getTokoByGroupId); // GET /api/toko/group/:groupId
 
 
 module.exports = router;

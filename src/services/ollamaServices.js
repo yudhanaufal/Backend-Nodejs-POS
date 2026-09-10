@@ -1,4 +1,4 @@
-/*async function askOllama(question) {
+/**async function askOllama(question) {
     const response = await fetch(
         'http://localhost:11434/api/generate',
         {
@@ -7,7 +7,7 @@
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'qwen2.5:3b',
+                model: 'qwen3.5:9b-mlx',
                 prompt: question,
                 stream: false
             })
@@ -19,8 +19,8 @@
     console.log(data);
 
     return data;
-}*/
+}
 
-/*  module.exports = {
+ module.exports = {
     askOllama
-};*/
+};**/
