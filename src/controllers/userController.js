@@ -200,6 +200,7 @@ exports.updateUser = async (req, res) => {
       telepon,
       role,
       toko_id,
+      group_toko,
       is_active
     } = req.body;
 
@@ -252,6 +253,7 @@ exports.updateUser = async (req, res) => {
       telepon: telepon || null,
       role: role || 'kasir',
       toko_id: toko_id || null,
+      group_toko: group_toko || null,
       is_active: is_active !== undefined ? is_active : true
     });
 
