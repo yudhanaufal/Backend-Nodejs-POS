@@ -404,8 +404,8 @@ const Laporan = {
     return rows;
   },
 
-  async getlaporantoko(start_date, end_date) {
-    const query = `
+  async getlaporantoko(start_date, end_date, group_toko = null) {
+    let query = `
       SELECT
         tk.nama_toko,
         tk.id AS toko_id,
@@ -445,13 +445,22 @@ const Laporan = {
         WHERE DATE(tanggal) BETWEEN ? AND ?
         GROUP BY toko_id
       ) s ON tk.id = s.toko_id
-      ORDER BY tk.nama_toko ASC
     `;
-    const [rows] = await db.query(query, [
+
+    const params = [
       start_date, end_date, // t
       start_date, end_date, // o
       start_date, end_date  // s
-    ]);
+    ];
+
+    if (group_toko !== null && group_toko !== undefined && group_toko !== '') {
+      query += ` WHERE tk.group_toko = ?`;
+      params.push(group_toko);
+    }
+
+    query += ` ORDER BY tk.nama_toko ASC`;
+
+    const [rows] = await db.query(query, params);
     return rows;
   },
   async getdetaillaporantoko(start_date, end_date, tokoid) {

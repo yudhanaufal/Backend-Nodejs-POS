@@ -595,7 +595,7 @@ exports.getLaporanOperasional = async (req, res) => {
 
 exports.getLaporanToko = async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, group_toko } = req.query;
 
     if (!start_date || !end_date) {
       return res.status(400).json({
@@ -604,7 +604,7 @@ exports.getLaporanToko = async (req, res) => {
       });
     }
 
-    const rawData = await Laporan.getlaporantoko(start_date, end_date);
+    const rawData = await Laporan.getlaporantoko(start_date, end_date, group_toko);
 
     // 1. Buat fungsi formatter Rupiah
     const formatterRupiah = new Intl.NumberFormat('id-ID', {

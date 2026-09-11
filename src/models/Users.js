@@ -176,16 +176,16 @@ class User {
       telepon,
       role,
       toko_id,
-      group_toko,
+      group_id,
       is_active
     } = data;
 
     const [result] = await db.query(
       `UPDATE users 
        SET nama_lengkap = ?, email = ?, telepon = ?, role = ?, 
-           toko_id = ?, group_toko = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+           toko_id = ?, group_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [nama_lengkap, email || null, telepon || null, role, toko_id || null, group_toko || null, is_active, id]
+      [nama_lengkap, email || null, telepon || null, role, toko_id || null, group_id || null, is_active, id]
     );
 
     return result.affectedRows > 0;
