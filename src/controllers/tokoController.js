@@ -4,9 +4,9 @@ exports.getAllToko = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    
+
     const result = await tokoModel.getAll(page, limit);
-    
+
     res.json({
       success: true,
       data: result.data,
@@ -24,16 +24,16 @@ exports.getAllToko = async (req, res) => {
 exports.getTokoById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const toko = await tokoModel.getById(id);
-    
+
     if (!toko) {
       return res.status(404).json({
         success: false,
         message: 'Toko tidak ditemukan'
       });
     }
-    
+
     res.json({
       success: true,
       data: toko
@@ -50,7 +50,7 @@ exports.getTokoById = async (req, res) => {
 exports.createToko = async (req, res) => {
   try {
     const { nama_toko, alamat, pemilik, telepon, email } = req.body;
-    
+
     // Validasi
     if (!nama_toko || !alamat) {
       return res.status(400).json({
@@ -58,7 +58,7 @@ exports.createToko = async (req, res) => {
         message: 'Nama toko dan alamat wajib diisi'
       });
     }
-    
+
     const tokoId = await tokoModel.create({
       nama_toko,
       alamat,
@@ -66,9 +66,9 @@ exports.createToko = async (req, res) => {
       telepon: telepon || null,
       email: email || null
     });
-    
+
     const newToko = await tokoModel.getById(tokoId);
-    
+
     res.status(201).json({
       success: true,
       message: 'Toko berhasil dibuat',
@@ -87,8 +87,8 @@ exports.createToko = async (req, res) => {
 exports.updateToko = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nama_toko, alamat, pemilik, telepon, email } = req.body;
-    
+    const { nama_toko, alamat, pemilik, telepon, email, group_toko } = req.body;
+
     // Validasi
     if (!nama_toko || !alamat) {
       return res.status(400).json({
@@ -96,7 +96,7 @@ exports.updateToko = async (req, res) => {
         message: 'Nama toko dan alamat wajib diisi'
       });
     }
-    
+
     // Cek apakah toko ada
     const exists = await tokoModel.exists(id);
     if (!exists) {
@@ -105,24 +105,25 @@ exports.updateToko = async (req, res) => {
         message: 'Toko tidak ditemukan'
       });
     }
-    
+
     const updated = await tokoModel.update(id, {
       nama_toko,
       alamat,
       pemilik: pemilik || null,
       telepon: telepon || null,
-      email: email || null
+      email: email || null,
+      group_toko: group_toko || null
     });
-    
+
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: 'Gagal mengupdate toko'
       });
     }
-    
+
     const updatedToko = await tokoModel.getById(id);
-    
+
     res.json({
       success: true,
       message: 'Toko berhasil diupdate',
@@ -140,7 +141,7 @@ exports.updateToko = async (req, res) => {
 exports.deleteToko = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Cek apakah toko ada
     const exists = await tokoModel.exists(id);
     if (!exists) {
@@ -149,23 +150,23 @@ exports.deleteToko = async (req, res) => {
         message: 'Toko tidak ditemukan'
       });
     }
-    
+
     const deleted = await tokoModel.delete(id);
-    
+
     if (!deleted) {
       return res.status(400).json({
         success: false,
         message: 'Gagal menghapus toko'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Toko berhasil dihapus'
     });
   } catch (error) {
     console.error('Delete toko error:', error);
-    
+
     // Handle foreign key constraint
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {
       return res.status(409).json({
@@ -173,7 +174,7 @@ exports.deleteToko = async (req, res) => {
         message: 'Tidak dapat menghapus toko karena masih memiliki data terkait'
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus toko'
@@ -184,16 +185,16 @@ exports.deleteToko = async (req, res) => {
 exports.searchToko = async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     if (!q || q.trim() === '') {
       return res.status(400).json({
         success: false,
         message: 'Kata kunci pencarian harus diisi'
       });
     }
-    
+
     const results = await tokoModel.search(q.trim());
-    
+
     res.json({
       success: true,
       data: results,
