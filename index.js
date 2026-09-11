@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const path = require('path')
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3155;
 
 // ==================== MIDDLEWARE ====================
 app.use(cors());
@@ -94,6 +94,6 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== START SERVER ====================
-app.listen(3000, '0.0.0.0', () => {
+app.listen(3155, '0.0.0.0', () => {
   console.log('API running on port 3000');
 });
