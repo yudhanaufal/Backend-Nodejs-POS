@@ -54,6 +54,7 @@ class User {
          u.is_active,
          u.created_at,
          u.toko_id,
+         u.group_id,
          t.nama_toko
        FROM users u
        LEFT JOIN toko t ON u.toko_id = t.id
@@ -101,6 +102,7 @@ class User {
          u.created_at,
          u.updated_at,
          u.toko_id,
+         u.group_id,
          t.nama_toko,
          t.alamat as toko_alamat
        FROM users u
