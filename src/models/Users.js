@@ -169,38 +169,52 @@ class User {
   }
 
   /**
-   * UPDATE - Update user data
+   * UPDATE - Update user data (dynamic, support partial + password)
    */
   static async update(id, data) {
-    const {
-      nama_lengkap,
-      email,
-      telepon,
-      role,
-      toko_id,
-      group_id,
-      is_active
-    } = data;
+    const allowedFields = ['nama_lengkap', 'email', 'telepon', 'role', 'toko_id', 'group_id', 'is_active', 'username'];
+    const setClauses = [];
+    const values = [];
 
-    const [result] = await db.query(
-      `UPDATE users 
-       SET nama_lengkap = ?, email = ?, telepon = ?, role = ?, 
-           toko_id = ?, group_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [nama_lengkap, email || null, telepon || null, role, toko_id || null, group_id || null, is_active, id]
-    );
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) {
+        setClauses.push(`${field} = ?`);
+        // ubah undefined/empty string jadi null untuk FK nullable
+        if ((field === 'email' || field === 'telepon' || field === 'toko_id' || field === 'group_id') && (data[field] === '' || data[field] === undefined)) {
+          values.push(null);
+        } else {
+          values.push(data[field]);
+        }
+      }
+    }
 
+    // handle password jika dikirim bersama update user
+    const rawPassword = data.password || data.new_password;
+    if (rawPassword !== undefined) {
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
+      setClauses.push(`password = ?`);
+      values.push(hashedPassword);
+    }
+
+    if (setClauses.length === 0) return false;
+
+    setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    const sql = `UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`;
+    values.push(id);
+
+    const [result] = await db.query(sql, values);
     return result.affectedRows > 0;
   }
 
   /**
-   * UPDATE - Update password
+   * UPDATE - Update password (tetap untuk endpoint terpisah)
    */
   static async updatePassword(id, newPassword) {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const [result] = await db.query(
-      `UPDATE users SET password = ? WHERE id = ?`,
+      `UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       [hashedPassword, id]
     );
 
@@ -208,11 +222,22 @@ class User {
   }
 
   /**
+   * READ - Get user by ID dengan password (untuk verifikasi)
+   */
+  static async getByIdWithPassword(id) {
+    const [rows] = await db.query(
+      `SELECT * FROM users WHERE id = ?`,
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  /**
    * DELETE - Hapus user
    */
   static async delete(id) {
     const [result] = await db.query(
-      'DELETE FROM users WHERE id = ?',
+      'UPDATE users SET is_active = 0 WHERE id = ?',
       [id]
     );
 

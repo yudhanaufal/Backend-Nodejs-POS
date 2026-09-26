@@ -60,6 +60,27 @@ class Absensi {
       return rows;
     }
   }
+
+  static async getAbsensiByToko(toko_id, start_date, end_date) {
+    try {
+      const [rows] = await db.query(
+        `
+      SELECT *
+      FROM absensi
+      WHERE toko_id = ?
+      AND STR_TO_DATE(tanggal, '%d-%m-%Y')
+          BETWEEN ? AND ?
+      ORDER BY id DESC
+      `,
+        [toko_id, start_date, end_date]
+      );
+
+      return rows;
+    } catch (error) {
+      console.error('Error getAbsensiByToko:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = Absensi;

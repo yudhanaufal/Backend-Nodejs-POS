@@ -1,4 +1,5 @@
 const Absensi = require('../models/Absensi');
+const Toko = require('../models/Toko');
 
 exports.createAbsensi = async (req, res) => {
   try {
@@ -76,6 +77,52 @@ exports.getAbsensiByUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+exports.getAbsensiByToko = async (req, res) => {
+  try {
+    const { toko_id } = req.params;
+    const { start_date, end_date } = req.query;
+
+    // Validasi toko_id
+    if (!toko_id || isNaN(toko_id)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID toko tidak valid"
+      });
+    }
+
+    // Cek apakah toko exists
+    const tokoExists = await Toko.exists(toko_id);
+    if (!tokoExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Toko tidak ditemukan"
+      });
+    }
+
+    // Validasi tanggal
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        message: "start_date dan end_date wajib diisi"
+      });
+    }
+
+    const absensiData = await Absensi.getAbsensiByToko(toko_id, start_date, end_date);
+
+    res.json({
+      success: true,
+      message: `Data absensi toko ${toko_id} berhasil diambil`,
+      data: absensiData
+    });
+  } catch (error) {
+    console.error('Get absensi by toko error:', error);
+    res.status(500).json({
+      success: false,
+      message: "Gagal mengambil data absensi"
     });
   }
 };

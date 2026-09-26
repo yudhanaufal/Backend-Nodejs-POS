@@ -16,9 +16,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Routes
+// Routes - spesifik dulu baru param dinamis
 router.post('/', upload.single('foto'), absensiController.createAbsensi);
 router.get('/', absensiController.getAbsensi);
+router.get('/toko/:toko_id', absensiController.getAbsensiByToko);
 router.get('/:user_id', absensiController.getAbsensiByUser);
 
 module.exports = router;

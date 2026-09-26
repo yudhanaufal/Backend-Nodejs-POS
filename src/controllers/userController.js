@@ -201,7 +201,12 @@ exports.updateUser = async (req, res) => {
       role,
       toko_id,
       group_id,
-      is_active
+      is_active,
+      username,
+      // password fields - support semua varian nama
+      password,
+      new_password,
+      current_password
     } = req.body;
 
     // Cek apakah user exists
@@ -213,7 +218,7 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    // Validasi email (jika diupdate)
+    // Validasi email (jika diupdate & tidak kosong)
     if (email) {
       const emailExists = await User.emailExists(email, id);
       if (emailExists) {
@@ -224,7 +229,18 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    // Validasi toko_id (jika ada)
+    // Validasi username (jika diupdate)
+    if (username) {
+      const usernameExists = await User.usernameExists(username, id);
+      if (usernameExists) {
+        return res.status(409).json({
+          success: false,
+          message: "Username sudah terdaftar"
+        });
+      }
+    }
+
+    // Validasi toko_id (jika ada dan tidak null)
     if (toko_id) {
       const tokoExists = await Toko.exists(toko_id);
       if (!tokoExists) {
@@ -246,16 +262,62 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    // Update user
-    const updated = await User.update(id, {
-      nama_lengkap,
-      email: email || null,
-      telepon: telepon || null,
-      role: role || 'kasir',
-      toko_id: toko_id || null,
-      group_id: group_id || null,
-      is_active: is_active !== undefined ? is_active : true
-    });
+    // ---- Handle password jika ikut dikirim di update user ----
+    const rawNewPassword = new_password || password; // support kedua nama field
+    if (rawNewPassword !== undefined && rawNewPassword !== null && rawNewPassword !== '') {
+      if (rawNewPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password baru minimal 6 karakter"
+        });
+      }
+
+      // Jika current_password dikirim, verifikasi dulu (untuk user ganti password sendiri)
+      // Jika tidak dikirim, dianggap admin reset -> langsung update tanpa verifikasi
+      if (current_password) {
+        const userWithPass = await User.getByIdWithPassword(id);
+        if (!userWithPass) {
+          return res.status(404).json({
+            success: false,
+            message: "User tidak ditemukan"
+          });
+        }
+        const isValid = await User.verifyPassword(current_password, userWithPass.password);
+        if (!isValid) {
+          return res.status(401).json({
+            success: false,
+            message: "Password lama salah"
+          });
+        }
+      } else {
+        // Opsional: jika ada auth dan bukan admin/owner, wajib kirim current_password saat update password diri sendiri
+        // Uncomment jika ingin ketat:
+        // if (req.user && String(req.user.id) === String(id) && !['admin','owner'].includes(req.user.role)) {
+        //   return res.status(400).json({ success:false, message:"current_password wajib diisi untuk ganti password" });
+        // }
+      }
+    }
+
+    // Build data hanya field yang dikirim (partial update) - tidak overwrite jadi 'kasir' / true
+    const updateData = {};
+    if (nama_lengkap !== undefined) updateData.nama_lengkap = nama_lengkap;
+    if (email !== undefined) updateData.email = email || null;
+    if (telepon !== undefined) updateData.telepon = telepon || null;
+    if (role !== undefined) updateData.role = role;
+    if (toko_id !== undefined) updateData.toko_id = toko_id || null;
+    if (group_id !== undefined) updateData.group_id = group_id || null;
+    if (is_active !== undefined) updateData.is_active = is_active;
+    if (username !== undefined) updateData.username = username;
+    if (rawNewPassword) updateData.new_password = rawNewPassword;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Tidak ada data untuk diupdate"
+      });
+    }
+
+    const updated = await User.update(id, updateData);
 
     if (!updated) {
       return res.status(400).json({
@@ -266,9 +328,12 @@ exports.updateUser = async (req, res) => {
 
     const updatedUser = await User.getById(id);
 
+    const passwordUpdated = !!rawNewPassword;
+
     res.json({
       success: true,
-      message: "User berhasil diupdate",
+      message: passwordUpdated ? "User & password berhasil diupdate" : "User berhasil diupdate",
+      passwordUpdated,
       data: updatedUser
     });
   } catch (error) {
@@ -283,42 +348,52 @@ exports.updateUser = async (req, res) => {
 exports.updatePassword = async (req, res) => {
   try {
     const { id } = req.params;
-    const { current_password, new_password } = req.body;
+    const { current_password, new_password, password } = req.body;
+    const finalNewPassword = new_password || password;
 
-    if (!current_password || !new_password) {
+    if (!finalNewPassword) {
       return res.status(400).json({
         success: false,
-        message: "Password lama dan baru wajib diisi"
+        message: "Password baru wajib diisi (new_password / password)"
       });
     }
 
-    if (new_password.length < 6) {
+    if (finalNewPassword.length < 6) {
       return res.status(400).json({
         success: false,
         message: "Password baru minimal 6 karakter"
       });
     }
 
-    // Get user with password
-    const user = await User.getByUsername(req.user?.username || '');
-    if (!user) {
+    // Cek user exists dulu
+    const userExists = await User.exists(id);
+    if (!userExists) {
       return res.status(404).json({
         success: false,
         message: "User tidak ditemukan"
       });
     }
 
-    // Verify current password
-    const isValid = await User.verifyPassword(current_password, user.password);
-    if (!isValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Password lama salah"
-      });
+    // Jika current_password dikirim, verifikasi. Jika tidak, allow admin reset (tanpa verifikasi)
+    if (current_password) {
+      const user = await User.getByIdWithPassword(id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User tidak ditemukan"
+        });
+      }
+      const isValid = await User.verifyPassword(current_password, user.password);
+      if (!isValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Password lama salah"
+        });
+      }
     }
 
     // Update password
-    const updated = await User.updatePassword(id, new_password);
+    const updated = await User.updatePassword(id, finalNewPassword);
 
     if (!updated) {
       return res.status(400).json({
@@ -382,3 +457,4 @@ exports.deleteUser = async (req, res) => {
     });
   }
 };
+
