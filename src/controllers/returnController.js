@@ -113,6 +113,17 @@ exports.createReturn = async (req, res) => {
     });
   } catch (error) {
     console.error('Create Return Error:', error);
+
+    // Handle stok tidak mencukupi dari model
+    if (error.insufficientStock || error.statusCode === 400) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Stok tidak mencukupi",
+        errors: error.insufficientStock || undefined,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Gagal membuat return",

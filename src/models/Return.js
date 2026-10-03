@@ -11,43 +11,79 @@ class ReturnModel {
     try {
       await connection.beginTransaction();
 
-      // 1. Hitung total otomatis dan ambil nama_produk dari tabel produk
-      let total = 0;
-      const validatedDetails = [];
-
-      if (details && details.length > 0) {
-        for (const detail of details) {
-          // Ambil data produk (nama_produk dan harga_beli)
-          const [produkRows] = await connection.query(
-            'SELECT nama_produk, harga_beli FROM produk WHERE id = ?',
-            [detail.produk_id]
-          );
-
-          if (produkRows.length === 0) {
-            await connection.rollback();
-            connection.release();
-            throw new Error(`Produk dengan ID ${detail.produk_id} tidak ditemukan`);
-          }
-
-          const produk = produkRows[0];
-          const quantity = detail.quantity || 1;
-          const harga_beli = parseFloat(produk.harga_beli);
-          const subtotal = harga_beli * quantity;
-
-          total += subtotal;
-
-          validatedDetails.push({
-            produk_id: detail.produk_id,
-            nama_produk: produk.nama_produk, // Ambil dari tabel produk
-            quantity: quantity,
-            harga_beli: harga_beli,
-            alasan_return: detail.alasan_return || null
-          });
-        }
-      } else {
+      if (!details || details.length === 0) {
         await connection.rollback();
         connection.release();
         throw new Error('Detail return harus diisi');
+      }
+
+      // 1. Validasi stok: agregasi quantity per produk_id untuk handle duplikat
+      const quantityMap = new Map();
+      for (const d of details) {
+        const pid = parseInt(d.produk_id);
+        const qty = parseInt(d.quantity) || 1;
+        quantityMap.set(pid, (quantityMap.get(pid) || 0) + qty);
+      }
+
+      // Ambil data produk dengan FOR UPDATE (lock) dan cek stok
+      const produkCache = new Map();
+      const insufficientStock = [];
+
+      for (const [produk_id, totalQty] of quantityMap.entries()) {
+        const [produkRows] = await connection.query(
+          'SELECT nama_produk, harga_beli, stok FROM produk WHERE id = ? FOR UPDATE',
+          [produk_id]
+        );
+
+        if (produkRows.length === 0) {
+          await connection.rollback();
+          connection.release();
+          throw new Error(`Produk dengan ID ${produk_id} tidak ditemukan`);
+        }
+
+        const produk = produkRows[0];
+        produkCache.set(produk_id, produk);
+
+        const stokTersedia = parseInt(produk.stok) || 0;
+        if (totalQty > stokTersedia) {
+          insufficientStock.push({
+            produk_id,
+            nama_produk: produk.nama_produk,
+            stok_tersedia: stokTersedia,
+            quantity_diminta: totalQty,
+            kekurangan: totalQty - stokTersedia
+          });
+        }
+      }
+
+      if (insufficientStock.length > 0) {
+        await connection.rollback();
+        connection.release();
+        const err = new Error(`Stok tidak mencukupi untuk ${insufficientStock.length} produk`);
+        err.statusCode = 400;
+        err.insufficientStock = insufficientStock;
+        throw err;
+      }
+
+      // 2. Hitung total otomatis pakai cache yang sudah di-lock
+      let total = 0;
+      const validatedDetails = [];
+
+      for (const detail of details) {
+        const produk = produkCache.get(parseInt(detail.produk_id));
+        const quantity = parseInt(detail.quantity) || 1;
+        const harga_beli = parseFloat(produk.harga_beli);
+        const subtotal = harga_beli * quantity;
+
+        total += subtotal;
+
+        validatedDetails.push({
+          produk_id: parseInt(detail.produk_id),
+          nama_produk: produk.nama_produk,
+          quantity: quantity,
+          harga_beli: harga_beli,
+          alasan_return: detail.alasan_return || null
+        });
       }
 
       // 2. Insert ke tabel return (header) dengan total yang sudah dihitung
